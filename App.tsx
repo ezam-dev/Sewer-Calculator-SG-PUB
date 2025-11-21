@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Calculator, AlertTriangle, CheckCircle2, Settings2, TrendingDown, ArrowUpRight, Droplets, ChevronDown, ArrowRight, Copy, History, Save, RefreshCcw, Mail, Phone, Info, ListPlus, FileText, X, Activity } from 'lucide-react';
+import { Calculator, AlertTriangle, CheckCircle2, Settings2, TrendingDown, ArrowUpRight, Droplets, ChevronDown, ArrowRight, Copy, History, Save, RefreshCcw, Mail, Phone, Info, ListPlus, FileText, X, Activity, Trash2 } from 'lucide-react';
 import { LiquidCard } from './components/LiquidCard';
 import { InputGroup } from './components/InputGroup';
 import SchematicGraph from './components/SchematicGraph';
 import { CalculationMode, CalculationResult, SewerNode, HistoryEntry } from './types';
-import { DEFAULT_VALUES, PUB_STANDARDS, PIPE_OPTIONS, PUMPING_PIPES, DRAIN_LINE_CONSTRAINTS } from './constants';
+import { DEFAULT_VALUES, PUB_STANDARDS, PIPE_OPTIONS, PUMPING_PIPES, DRAIN_LINE_CONSTRAINTS, IC_STANDARDS } from './constants';
 
 const App: React.FC = () => {
   // State
@@ -37,6 +37,7 @@ const App: React.FC = () => {
   const [showScheduleCopyFeedback, setShowScheduleCopyFeedback] = useState(false);
   const [copiedNode, setCopiedNode] = useState<string | null>(null);
   const [showStandards, setShowStandards] = useState(false);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   // Derived Lists
   const allPipes = useMemo(() => {
@@ -131,8 +132,14 @@ const App: React.FC = () => {
     // 3. Depth Check
     const depth1 = dTl1 - startIl;
     const depth2 = dTl2 - endIl;
-    if (depth1 < 1.0 && dTl1 !== 0) issues.push(`Upstream Depth ${depth1.toFixed(2)}m is shallow (< 1.0m).`);
-    if (depth2 < 1.0 && dTl2 !== 0) issues.push(`Downstream Depth ${depth2.toFixed(2)}m is shallow (< 1.0m).`);
+    
+    // PUB COP 4.2.1(e)(ii) - Minimum depth 750mm
+    if (depth1 < IC_STANDARDS.minDepth && dTl1 !== 0) {
+      issues.push(`Upstream Depth ${depth1.toFixed(2)}m is less than 750mm min (PUB COP 4.2.1(e)(ii)).`);
+    }
+    if (depth2 < IC_STANDARDS.minDepth && dTl2 !== 0) {
+      issues.push(`Downstream Depth ${depth2.toFixed(2)}m is less than 750mm min (PUB COP 4.2.1(e)(ii)).`);
+    }
 
     // 4. Velocity Check (Manning's Formula)
     // V = (1/n) * R^(2/3) * S^(1/2)
@@ -201,6 +208,17 @@ const App: React.FC = () => {
       }
       setSelectedMaterial(pipe.material);
       setSelectedDiameter(pipe.diameter);
+    }
+  };
+
+  const requestDelete = (id: string) => {
+    setDeleteConfirmId(id);
+  };
+
+  const executeDelete = () => {
+    if (deleteConfirmId) {
+      setHistory(prev => prev.filter(entry => entry.id !== deleteConfirmId));
+      setDeleteConfirmId(null);
     }
   };
 
@@ -340,6 +358,37 @@ ${lines.join('\n')}
         </div>
       )}
 
+      {/* Delete Confirmation Modal */}
+      {deleteConfirmId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in zoom-in-95 duration-200">
+          <div className="bg-[#1a1f3c] border border-white/10 rounded-3xl p-6 max-w-sm w-full shadow-2xl relative">
+            <div className="flex flex-col items-center text-center gap-4">
+              <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center text-red-400">
+                <Trash2 size={24} />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-white mb-1">Delete Run?</h3>
+                <p className="text-sm text-white/60">This will remove this run from your project schedule. This action cannot be undone.</p>
+              </div>
+              <div className="flex gap-3 w-full mt-2">
+                <button 
+                  onClick={() => setDeleteConfirmId(null)}
+                  className="flex-1 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-white/80 text-sm font-medium transition-colors"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={() => executeDelete()}
+                  className="flex-1 py-2.5 rounded-xl bg-red-500 hover:bg-red-600 text-white text-sm font-medium shadow-lg shadow-red-500/20 transition-all transform active:scale-95"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="max-w-7xl w-full grid grid-cols-1 lg:grid-cols-12 gap-6 z-10 mb-12">
         
         {/* Header & Mode Selection */}
@@ -426,7 +475,7 @@ ${lines.join('\n')}
               {result && (
                  <div className="flex justify-between items-center px-1 animate-pop-in">
                    <span className="text-xs text-white/40">Depth</span>
-                   <span className={`text-sm font-mono font-medium ${result.startNode.depth < 1.0 ? 'text-red-400' : 'text-emerald-400'}`}>
+                   <span className={`text-sm font-mono font-medium ${result.startNode.depth < IC_STANDARDS.minDepth ? 'text-red-400' : 'text-emerald-400'}`}>
                      {result.startNode.depth.toFixed(3)}m
                    </span>
                  </div>
@@ -613,7 +662,7 @@ ${lines.join('\n')}
               {result && (
                  <div className="flex justify-between items-center px-1 animate-pop-in">
                    <span className="text-xs text-white/40">Depth</span>
-                   <span className={`text-sm font-mono font-medium ${result.endNode.depth < 1.0 ? 'text-red-400' : 'text-emerald-400'}`}>
+                   <span className={`text-sm font-mono font-medium ${result.endNode.depth < IC_STANDARDS.minDepth ? 'text-red-400' : 'text-emerald-400'}`}>
                      {result.endNode.depth.toFixed(3)}m
                    </span>
                  </div>
@@ -802,13 +851,22 @@ ${lines.join('\n')}
                            )}
                         </td>
                         <td className="py-3 text-right pr-2">
-                          <button 
-                             onClick={() => restoreHistory(entry)}
-                             className="p-1.5 hover:bg-cyan-500/20 text-cyan-400 rounded-lg transition-colors transform active:scale-90 hover:scale-110"
-                             title="Restore and Edit"
-                          >
-                            <RefreshCcw size={16} />
-                          </button>
+                          <div className="flex justify-end items-center gap-2">
+                            <button 
+                               onClick={() => restoreHistory(entry)}
+                               className="p-1.5 hover:bg-cyan-500/20 text-cyan-400 rounded-lg transition-colors transform active:scale-90 hover:scale-110"
+                               title="Restore and Edit"
+                            >
+                              <RefreshCcw size={16} />
+                            </button>
+                            <button 
+                               onClick={() => requestDelete(entry.id)}
+                               className="p-1.5 hover:bg-red-500/20 text-red-400 rounded-lg transition-colors transform active:scale-90 hover:scale-110"
+                               title="Delete Run"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}

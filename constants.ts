@@ -14,6 +14,10 @@ export const DRAIN_LINE_CONSTRAINTS = {
   minLength: 0,
 };
 
+export const IC_STANDARDS = {
+  minDepth: 0.75, // meters (750mm) per PUB COP 4.2.1(e)(ii)
+};
+
 export const PIPE_OPTIONS: PipeDef[] = [
   // 100mm Pipes REMOVED - Only allowed for Pumping Mains (see PUMPING_PIPES below)
 
