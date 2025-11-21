@@ -1,10 +1,11 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { Calculator, AlertTriangle, CheckCircle2, Settings2, TrendingDown, ArrowUpRight, Droplets, ChevronDown, ArrowRight, Copy, History, Save, RefreshCcw, Mail, Phone, Info, ListPlus, FileText, X, Activity, Trash2 } from 'lucide-react';
 import { LiquidCard } from './components/LiquidCard';
 import { InputGroup } from './components/InputGroup';
 import SchematicGraph from './components/SchematicGraph';
 import { CalculationMode, CalculationResult, SewerNode, HistoryEntry } from './types';
-import { DEFAULT_VALUES, PUB_STANDARDS, PIPE_OPTIONS, PUMPING_PIPES, DRAIN_LINE_CONSTRAINTS, IC_STANDARDS } from './constants';
+import { DEFAULT_VALUES, PUB_STANDARDS, PUMPING_STANDARDS, PIPE_OPTIONS, PUMPING_PIPES, DRAIN_LINE_CONSTRAINTS, IC_STANDARDS, DROP_STRUCTURE_THRESHOLDS } from './constants';
 
 const App: React.FC = () => {
   // State
@@ -12,19 +13,21 @@ const App: React.FC = () => {
   
   // Pipe Selection State
   const [isPumpingMain, setIsPumpingMain] = useState<boolean>(false);
-  const [selectedMaterial, setSelectedMaterial] = useState<string>('VCP');
-  const [selectedDiameter, setSelectedDiameter] = useState<number>(200);
+  const [selectedMaterial, setSelectedMaterial] = useState<string>('UPVC');
+  const [selectedDiameter, setSelectedDiameter] = useState<number>(150);
   const [pipeId, setPipeId] = useState<string>(DEFAULT_VALUES.defaultPipeId);
   
   // Inputs
   const [ic1, setIc1] = useState<string>(DEFAULT_VALUES.startIC);
   const [tl1, setTl1] = useState<number | ''>(DEFAULT_VALUES.tl1);
   const [il1, setIl1] = useState<number | ''>(DEFAULT_VALUES.il1);
+  const [depth1, setDepth1] = useState<string>((DEFAULT_VALUES.tl1 - DEFAULT_VALUES.il1).toFixed(3));
   
   const [ic2, setIc2] = useState<string>(DEFAULT_VALUES.endIC);
   const [tl2, setTl2] = useState<number | ''>(DEFAULT_VALUES.tl2);
   const [il2, setIl2] = useState<number | ''>(''); 
-  
+  const [depth2, setDepth2] = useState<string>('');
+
   const [distance, setDistance] = useState<number | ''>(DEFAULT_VALUES.distance);
   const [gradient, setGradient] = useState<number | ''>(DEFAULT_VALUES.gradient); // 1 : X
 
@@ -74,7 +77,7 @@ const App: React.FC = () => {
   useEffect(() => {
     calculate();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, tl1, il1, tl2, il2, distance, gradient, pipeId]);
+  }, [mode, tl1, il1, tl2, il2, distance, gradient, pipeId, isPumpingMain]);
 
   const calculate = () => {
     // Basic parsing
@@ -119,13 +122,13 @@ const App: React.FC = () => {
     }
 
     // 2. Gradient Check
-    if (absGradient > currentPipe.minGradient) {
+    if (absGradient > currentPipe.minGradient && !isPumpingMain) {
       issues.push(`Gradient 1:${absGradient.toFixed(0)} is flatter than min 1:${currentPipe.minGradient} for ${currentPipe.label}. Risk of silting.`);
     }
-    if (absGradient < PUB_STANDARDS.maxGradient && absGradient !== 0) {
+    if (absGradient < PUB_STANDARDS.maxGradient && absGradient !== 0 && !isPumpingMain) {
       issues.push(`Gradient 1:${absGradient.toFixed(0)} is steeper than max 1:${PUB_STANDARDS.maxGradient}. Risk of scouring.`);
     }
-    if (mode === CalculationMode.VERIFY && startIl <= endIl) {
+    if (mode === CalculationMode.VERIFY && startIl <= endIl && !isPumpingMain) {
       issues.push("Start IL is lower/equal to End IL. No gravity flow.");
     }
     
@@ -151,11 +154,24 @@ const App: React.FC = () => {
     const S = absGradient > 0 ? 1 / absGradient : 0;
     const velocity = (1 / n) * Math.pow(R, 2/3) * Math.sqrt(S);
 
-    if (velocity < PUB_STANDARDS.minVelocity && velocity > 0) {
-      issues.push(`Velocity ${velocity.toFixed(2)} m/s is below ${PUB_STANDARDS.minVelocity} m/s. Self-cleansing fail.`);
+    const minV = isPumpingMain ? PUMPING_STANDARDS.minVelocity : PUB_STANDARDS.minVelocity;
+    const maxV = isPumpingMain ? PUMPING_STANDARDS.maxVelocity : PUB_STANDARDS.maxVelocity;
+
+    if (velocity < minV && velocity > 0) {
+      issues.push(`Velocity ${velocity.toFixed(2)} m/s is below ${minV} m/s. Self-cleansing fail.`);
     }
-    if (velocity > PUB_STANDARDS.maxVelocity) {
-      issues.push(`Velocity ${velocity.toFixed(2)} m/s exceeds ${PUB_STANDARDS.maxVelocity} m/s. Scouring risk.`);
+    if (velocity > maxV) {
+      issues.push(`Velocity ${velocity.toFixed(2)} m/s exceeds ${maxV} m/s. Scouring risk.`);
+    }
+
+    // 5. Drop Structure Checks (PUB Table 5 / 4.2.1)
+    // If the pipe is a gravity sewer
+    if (!isPumpingMain) {
+        if (calcFall >= DROP_STRUCTURE_THRESHOLDS.vortexMin) {
+            issues.push(`Hydraulic drop ${calcFall.toFixed(2)}m > 6.0m. Vortex drop structure required (Table 5).`);
+        } else if (calcFall >= DROP_STRUCTURE_THRESHOLDS.backdropMin) {
+             issues.push(`Hydraulic drop ${calcFall.toFixed(2)}m ≥ 0.5m. Backdrop or Tumbling Bay required (4.2.1.b.ii).`);
+        }
     }
 
     const startNode: SewerNode = { id: ic1, tl: dTl1, il: startIl, depth: depth1 };
@@ -172,6 +188,55 @@ const App: React.FC = () => {
       complianceIssues: issues,
       pipe: currentPipe,
     });
+  };
+
+  // Input Handlers with Sync Logic
+  const handleTl1Change = (val: string) => {
+    const v = val === '' ? '' : Number(val);
+    setTl1(v);
+    if (v !== '' && il1 !== '') {
+      setDepth1((v - (il1 as number)).toFixed(3));
+    }
+  };
+
+  const handleIl1Change = (val: string) => {
+    const v = val === '' ? '' : Number(val);
+    setIl1(v);
+    if (tl1 !== '' && v !== '') {
+      setDepth1(((tl1 as number) - v).toFixed(3));
+    }
+  };
+
+  const handleDepth1Change = (val: string) => {
+    setDepth1(val);
+    const d = Number(val);
+    if (val !== '' && !isNaN(d) && tl1 !== '') {
+      setIl1(Number(((tl1 as number) - d).toFixed(3)));
+    }
+  };
+
+  const handleTl2Change = (val: string) => {
+    const v = val === '' ? '' : Number(val);
+    setTl2(v);
+    if (v !== '' && il2 !== '') {
+      setDepth2((v - (il2 as number)).toFixed(3));
+    }
+  };
+
+  const handleIl2Change = (val: string) => {
+    const v = val === '' ? '' : Number(val);
+    setIl2(v);
+    if (tl2 !== '' && v !== '') {
+      setDepth2(((tl2 as number) - v).toFixed(3));
+    }
+  };
+
+  const handleDepth2Change = (val: string) => {
+    setDepth2(val);
+    const d = Number(val);
+    if (val !== '' && !isNaN(d) && tl2 !== '') {
+      setIl2(Number(((tl2 as number) - d).toFixed(3)));
+    }
   };
 
   // Actions
@@ -197,6 +262,19 @@ const App: React.FC = () => {
     setDistance(entry.inputs.distance);
     setGradient(entry.inputs.gradient);
     setPipeId(entry.inputs.pipeId);
+
+    // Sync depths
+    if (entry.inputs.tl1 !== '' && entry.inputs.il1 !== '') {
+      setDepth1((Number(entry.inputs.tl1) - Number(entry.inputs.il1)).toFixed(3));
+    } else {
+      setDepth1('');
+    }
+
+    if (entry.inputs.tl2 !== '' && entry.inputs.il2 !== '') {
+      setDepth2((Number(entry.inputs.tl2) - Number(entry.inputs.il2)).toFixed(3));
+    } else {
+      setDepth2('');
+    }
     
     // Also restore material selection based on pipeId
     // Check both standard and pumping pipes
@@ -294,11 +372,23 @@ ${lines.join('\n')}
     });
   };
 
+  const handleRunCopy = (entry: HistoryEntry, runLabel: string) => {
+    const text = `${runLabel}: ø${entry.result.pipe.diameter} ${entry.result.pipe.material} ${entry.result.distance.toFixed(2)}m 1:${Math.abs(entry.result.gradient).toFixed(0)}`;
+
+    navigator.clipboard.writeText(text).then(() => {
+      setCopiedNode(entry.id);
+      setTimeout(() => setCopiedNode(null), 2000);
+    });
+  };
+
   // Gradient Validation for UI Warning
   const isGradientWarning = result && Math.abs(result.gradient) > currentPipe.minGradient;
   
   // Distance Validation for UI Warning
   const isDistanceWarning = Number(distance) > DRAIN_LINE_CONSTRAINTS.maxLength;
+
+  // Calculated percentage
+  const gradientPercentage = result ? (100 / Math.abs(result.gradient)).toFixed(2) : '0.00';
 
   return (
     <div className="min-h-screen w-full p-4 md:p-8 flex flex-col items-center relative overflow-x-hidden selection:bg-cyan-500/30">
@@ -313,7 +403,7 @@ ${lines.join('\n')}
       {/* Standards Popup */}
       {showStandards && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in zoom-in-95 duration-200">
-          <div className="bg-[#1a1f3c] border border-white/10 rounded-3xl p-6 max-w-md w-full shadow-2xl relative">
+          <div className="bg-[#1a1f3c] border border-white/10 rounded-3xl p-6 max-w-md w-full shadow-2xl relative overflow-y-auto max-h-[90vh]">
             <button 
               onClick={() => setShowStandards(false)}
               className="absolute top-4 right-4 text-white/40 hover:text-white"
@@ -328,13 +418,28 @@ ${lines.join('\n')}
               <div className="p-3 bg-white/5 rounded-xl border border-white/5">
                 <p className="text-xs uppercase text-white/40 mb-1">Velocity Limits</p>
                 <div className="flex justify-between items-center">
-                  <span className="text-white">Minimum</span>
+                  <span className="text-white">Gravity Min</span>
                   <span className="font-mono text-emerald-400">{PUB_STANDARDS.minVelocity} m/s</span>
+                </div>
+                <div className="flex justify-between items-center mt-1">
+                  <span className="text-white">Pumping Min</span>
+                  <span className="font-mono text-emerald-400">{PUMPING_STANDARDS.minVelocity} m/s</span>
                 </div>
                 <div className="flex justify-between items-center mt-1">
                   <span className="text-white">Maximum</span>
                   <span className="font-mono text-red-400">{PUB_STANDARDS.maxVelocity} m/s</span>
                 </div>
+              </div>
+              <div className="p-3 bg-white/5 rounded-xl border border-white/5">
+                 <p className="text-xs uppercase text-white/40 mb-1">Hydraulic Drops</p>
+                 <div className="flex justify-between items-center">
+                   <span className="text-white">≥ 0.5m</span>
+                   <span className="font-mono text-amber-400">Backdrop Required</span>
+                 </div>
+                 <div className="flex justify-between items-center mt-1">
+                   <span className="text-white">> 6.0m</span>
+                   <span className="font-mono text-red-400">Vortex Drop Required</span>
+                 </div>
               </div>
               <div className="p-3 bg-white/5 rounded-xl border border-white/5">
                  <p className="text-xs uppercase text-white/40 mb-1">Maximum Length</p>
@@ -343,15 +448,6 @@ ${lines.join('\n')}
                    <span className="font-mono text-emerald-400">50 m</span>
                  </div>
                  <p className="text-[10px] text-white/30 mt-1">Section 4.2.1(b)(i) - Provide intermediate ICs for longer runs.</p>
-              </div>
-              <div className="p-3 bg-white/5 rounded-xl border border-white/5">
-                 <p className="text-xs uppercase text-white/40 mb-1">Common Minimum Gradients</p>
-                 <ul className="text-sm space-y-1 text-white/80">
-                   <li className="flex justify-between"><span className="text-white/60">150mm</span> <span>1:80 (VCP)</span></li>
-                   <li className="flex justify-between"><span className="text-white/60">200mm</span> <span>1:120 (VCP)</span></li>
-                   <li className="flex justify-between"><span className="text-white/60">225mm</span> <span>1:135 (VCP)</span></li>
-                   <li className="flex justify-between"><span className="text-white/60">300mm</span> <span>1:220 (UPVC)</span></li>
-                 </ul>
               </div>
             </div>
           </div>
@@ -462,24 +558,24 @@ ${lines.join('\n')}
                </div>
             </div>
             
-            <div className="space-y-5">
-              <InputGroup label="Top Level (TL)" value={tl1} onChange={(v) => setTl1(v === '' ? '' : Number(v))} unit="m" placeholder="0.00" />
+            <div className="space-y-4">
+              <InputGroup label="Top Level (TL)" value={tl1} onChange={handleTl1Change} unit="m" placeholder="0.00" />
               <InputGroup 
                 label="Invert Level (IL)" 
                 value={mode === CalculationMode.UPSTREAM && result ? result.startNode.il.toFixed(3) : il1} 
-                onChange={(v) => setIl1(v === '' ? '' : Number(v))} 
+                onChange={handleIl1Change} 
                 unit="m" 
                 placeholder="0.00"
                 readOnly={mode === CalculationMode.UPSTREAM}
               />
-              {result && (
-                 <div className="flex justify-between items-center px-1 animate-pop-in">
-                   <span className="text-xs text-white/40">Depth</span>
-                   <span className={`text-sm font-mono font-medium ${result.startNode.depth < IC_STANDARDS.minDepth ? 'text-red-400' : 'text-emerald-400'}`}>
-                     {result.startNode.depth.toFixed(3)}m
-                   </span>
-                 </div>
-              )}
+              <InputGroup 
+                label="Depth"
+                value={mode === CalculationMode.UPSTREAM && result ? result.startNode.depth.toFixed(3) : depth1}
+                onChange={mode === CalculationMode.UPSTREAM ? () => {} : handleDepth1Change}
+                unit="m"
+                placeholder="0.00"
+                readOnly={mode === CalculationMode.UPSTREAM}
+              />
             </div>
           </LiquidCard>
 
@@ -526,7 +622,7 @@ ${lines.join('\n')}
                       <ChevronDown className="absolute right-3 top-3.5 text-white/40 w-4 h-4 pointer-events-none" />
                     </div>
                      <span className="text-[9px] text-white/30 ml-1">
-                        Min ø150mm {isPumpingMain ? '(ø100mm enabled)' : '(ø100mm for pumping only)'}
+                        Min ø150mm {isPumpingMain ? '(ø100mm enabled)' : '(ø200mm Public)'}
                      </span>
                   </div>
 
@@ -543,7 +639,6 @@ ${lines.join('\n')}
                         value={selectedMaterial} 
                         onChange={(e) => {
                           setSelectedMaterial(e.target.value);
-                          // Reset diameter logic handled by currentPipe effect but we force a safe re-selection
                           // logic handled in effect
                         }}
                         className="w-full bg-black/20 border border-white/10 text-white text-sm rounded-2xl px-3 py-3 appearance-none focus:border-cyan-400/50 outline-none transition-all cursor-pointer hover:bg-white/5 focus:scale-[1.02] focus:bg-black/30 ease-out duration-300"
@@ -565,7 +660,7 @@ ${lines.join('\n')}
                     </div>
                     <div className="h-3 w-px bg-white/10"></div>
                     <div className="flex items-center gap-2">
-                      <span className="text-[10px] text-white/40 uppercase">PUB Min Grad</span>
+                      <span className="text-[10px] text-white/40 uppercase">Rec Min Grad</span>
                       <span className="text-xs font-mono text-purple-300">1:{currentPipe.minGradient}</span>
                     </div>
                 </div>
@@ -593,7 +688,7 @@ ${lines.join('\n')}
                          <AlertTriangle size={12} className="mt-0.5 shrink-0" />
                          <div className="flex flex-col">
                              <span className="font-bold">Exceeds PUB Limit (Section 4.2.1)</span>
-                             <span className="opacity-80">For longer runs, provide multiple inspection chambers.</span>
+                             <span className="opacity-80">For longer runs, provide intermediate ICs.</span>
                          </div>
                       </div>
                     )}
@@ -601,7 +696,12 @@ ${lines.join('\n')}
                   
                   <div className="relative">
                     <InputGroup 
-                      label="Gradient (1:X)" 
+                      label={
+                          <div className="flex justify-between items-center w-full pr-1">
+                           <span>Gradient (1:X)</span>
+                           {result && <span className="text-[9px] text-white/30 bg-white/5 px-1 rounded">{gradientPercentage}%</span>}
+                          </div>
+                      }
                       value={mode === CalculationMode.VERIFY && result ? (result.gradient === 0 ? '0' : Math.abs(result.gradient).toFixed(1)) : gradient} 
                       onChange={(v) => setGradient(v === '' ? '' : Number(v))} 
                       unit="" 
@@ -609,7 +709,7 @@ ${lines.join('\n')}
                       readOnly={mode === CalculationMode.VERIFY}
                     />
                     {/* Warning Icon for Gradient Input */}
-                    {isGradientWarning && !result?.isCompliant && mode !== CalculationMode.VERIFY && (
+                    {isGradientWarning && !result?.isCompliant && mode !== CalculationMode.VERIFY && !isPumpingMain && (
                        <div className="absolute right-0 top-0 -mt-1 flex items-center gap-1 text-amber-400 animate-pulse bg-black/50 rounded px-1">
                          <AlertTriangle size={10} />
                          <span className="text-[10px] font-bold">Below Min</span>
@@ -649,24 +749,24 @@ ${lines.join('\n')}
                </div>
             </div>
             
-            <div className="space-y-5">
-              <InputGroup label="Top Level (TL)" value={tl2} onChange={(v) => setTl2(v === '' ? '' : Number(v))} unit="m" placeholder="0.00" />
+            <div className="space-y-4">
+              <InputGroup label="Top Level (TL)" value={tl2} onChange={handleTl2Change} unit="m" placeholder="0.00" />
               <InputGroup 
                 label="Invert Level (IL)" 
                 value={mode === CalculationMode.DOWNSTREAM && result ? result.endNode.il.toFixed(3) : il2} 
-                onChange={(v) => setIl2(v === '' ? '' : Number(v))} 
+                onChange={handleIl2Change} 
                 unit="m" 
                 placeholder="0.00"
                 readOnly={mode === CalculationMode.DOWNSTREAM}
               />
-              {result && (
-                 <div className="flex justify-between items-center px-1 animate-pop-in">
-                   <span className="text-xs text-white/40">Depth</span>
-                   <span className={`text-sm font-mono font-medium ${result.endNode.depth < IC_STANDARDS.minDepth ? 'text-red-400' : 'text-emerald-400'}`}>
-                     {result.endNode.depth.toFixed(3)}m
-                   </span>
-                 </div>
-              )}
+              <InputGroup 
+                label="Depth"
+                value={mode === CalculationMode.DOWNSTREAM && result ? result.endNode.depth.toFixed(3) : depth2}
+                onChange={mode === CalculationMode.DOWNSTREAM ? () => {} : handleDepth2Change}
+                unit="m"
+                placeholder="0.00"
+                readOnly={mode === CalculationMode.DOWNSTREAM}
+              />
             </div>
           </LiquidCard>
 
@@ -706,7 +806,7 @@ ${lines.join('\n')}
              <LiquidCard className="flex flex-col justify-center items-center text-center py-8">
                 <span className="text-xs text-white/40 uppercase tracking-widest mb-2">Velocity</span>
                 <span key={result?.velocity} className={`text-3xl font-bold font-mono animate-pop-in ${
-                  result?.velocity && (result.velocity < 0.8 || result.velocity > 2.4) ? 'text-amber-400' : 'text-emerald-300'
+                  result?.velocity && (result.velocity < (isPumpingMain ? PUMPING_STANDARDS.minVelocity : PUB_STANDARDS.minVelocity) || result.velocity > PUB_STANDARDS.maxVelocity) ? 'text-amber-400' : 'text-emerald-300'
                 }`}>
                   {result ? result.velocity.toFixed(2) : '0.00'}
                   <span className="text-sm text-white/30 ml-1">m/s</span>
@@ -778,7 +878,7 @@ ${lines.join('\n')}
                   </div>
                 </div>
                 <p className="text-sm text-white/60 mt-3 pt-3 border-t border-white/5 px-4">
-                  All hydraulic parameters are within PUB Standard Code of Practice.
+                  All hydraulic parameters are within PUB Standard Code of Practice (Section 3 & 4).
                 </p>
              </LiquidCard>
           )}
@@ -858,6 +958,13 @@ ${lines.join('\n')}
                                title="Restore and Edit"
                             >
                               <RefreshCcw size={16} />
+                            </button>
+                            <button 
+                               onClick={() => handleRunCopy(entry, `Run ${history.length - idx}`)}
+                               className="p-1.5 hover:bg-blue-500/20 text-blue-400 rounded-lg transition-colors transform active:scale-90 hover:scale-110"
+                               title="Copy Run Details"
+                            >
+                              {copiedNode === entry.id ? <CheckCircle2 size={16} /> : <Copy size={16} />}
                             </button>
                             <button 
                                onClick={() => requestDelete(entry.id)}
