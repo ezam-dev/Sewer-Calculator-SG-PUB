@@ -14,6 +14,7 @@ export interface SewerNode {
 export interface PipeDef {
   id: string;
   label: string;
+  material: string; // New field for filtering
   diameter: number; // mm
   n: number; // Manning's n
   minGradient: number; // 1:X (The flatter limit, e.g., 120)
