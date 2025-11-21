@@ -1,0 +1,5 @@
+{
+  "name": "PUB Sewerage Calc Pro",
+  "description": "A high-fidelity liquid-glass interface sewerage calculator based on Singapore PUB Standards for calculating Invert Levels, Top Levels, Depth, and Gradients.",
+  "requestFramePermissions": []
+}
