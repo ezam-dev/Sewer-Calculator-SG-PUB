@@ -14,12 +14,11 @@ import { CalculationResult } from '../types';
 
 interface SchematicGraphProps {
   data: CalculationResult;
+  theme: 'dark' | 'light';
 }
 
-const SchematicGraph: React.FC<SchematicGraphProps> = ({ data }) => {
+const SchematicGraph: React.FC<SchematicGraphProps> = ({ data, theme }) => {
   // Prepare data for Recharts
-  // We need a dataset that represents the profile from Start (0) to End (Distance)
-  
   const chartData = [
     {
       name: data.startNode.id,
@@ -43,33 +42,38 @@ const SchematicGraph: React.FC<SchematicGraphProps> = ({ data }) => {
   // Add buffer to scale
   const buffer = (maxVal - minVal) * 0.15; 
 
+  // Theme-based colors
+  const axisColor = theme === 'dark' ? '#ffffff40' : '#64748b'; // slate-500
+  const gridColor = theme === 'dark' ? '#ffffff10' : '#00000010';
+  const tooltipBg = theme === 'dark' ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.8)';
+  const tooltipBorder = theme === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)';
+  const tooltipText = theme === 'dark' ? '#ffffff' : '#0f172a';
+
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
-      // payload[0] is usually TL (Area), payload[1] is IL (Line) based on render order below
-      // But robustly: find by dataKey
       const tl = payload.find((p: any) => p.dataKey === 'tl')?.value;
       const il = payload.find((p: any) => p.dataKey === 'il')?.value;
       const nodeName = label === 0 ? data.startNode.id : data.endNode.id;
 
       return (
-        <div className="bg-black/60 backdrop-blur-xl border border-white/10 p-4 rounded-2xl text-xs shadow-[0_8px_32px_rgba(0,0,0,0.5)]">
-          <div className="flex items-center gap-2 mb-2 border-b border-white/10 pb-2">
-            <div className="w-2 h-2 rounded-full bg-white"></div>
-            <p className="text-white font-bold text-sm uppercase tracking-wider">IC {nodeName}</p>
+        <div style={{ backgroundColor: tooltipBg, borderColor: tooltipBorder }} className="backdrop-blur-xl border p-4 rounded-2xl text-xs shadow-xl">
+          <div className={`flex items-center gap-2 mb-2 border-b pb-2 ${theme === 'dark' ? 'border-white/10' : 'border-black/5'}`}>
+            <div className={`w-2 h-2 rounded-full ${theme === 'dark' ? 'bg-white' : 'bg-slate-800'}`}></div>
+            <p style={{ color: tooltipText }} className="font-bold text-sm uppercase tracking-wider">IC {nodeName}</p>
           </div>
           <div className="space-y-1.5">
-            <p className="text-emerald-300 flex justify-between gap-4">
+            <p className="text-emerald-500 dark:text-emerald-300 flex justify-between gap-4">
               <span>Top Level:</span> 
               <span className="font-mono font-bold">{tl?.toFixed(3)}m</span>
             </p>
-            <p className="text-cyan-300 flex justify-between gap-4">
+            <p className="text-cyan-600 dark:text-cyan-300 flex justify-between gap-4">
               <span>Invert Level:</span> 
               <span className="font-mono font-bold">{il?.toFixed(3)}m</span>
             </p>
-            <div className="h-px bg-white/10 my-1"></div>
-            <p className="text-white/60 flex justify-between gap-4">
+            <div className={`h-px my-1 ${theme === 'dark' ? 'bg-white/10' : 'bg-black/5'}`}></div>
+            <p className={`${theme === 'dark' ? 'text-white/60' : 'text-slate-500'} flex justify-between gap-4`}>
               <span>Depth:</span> 
-              <span className="font-mono text-white">{(tl - il).toFixed(3)}m</span>
+              <span className={`font-mono ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{(tl - il).toFixed(3)}m</span>
             </p>
           </div>
         </div>
@@ -96,14 +100,14 @@ const SchematicGraph: React.FC<SchematicGraphProps> = ({ data }) => {
             </linearGradient>
           </defs>
           
-          <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" vertical={false} />
+          <CartesianGrid strokeDasharray="3 3" stroke={gridColor} vertical={false} />
           
           <XAxis 
             dataKey="distance" 
             type="number" 
             domain={[0, 'dataMax']}
-            stroke="#ffffff40" 
-            tick={{fill: '#ffffff60', fontSize: 10}}
+            stroke={axisColor} 
+            tick={{fill: axisColor, fontSize: 10}}
             tickLine={false}
             axisLine={false}
             unit="m"
@@ -112,15 +116,15 @@ const SchematicGraph: React.FC<SchematicGraphProps> = ({ data }) => {
           
           <YAxis 
             domain={[minVal - buffer, maxVal + buffer]} 
-            stroke="#ffffff40" 
-            tick={{fill: '#ffffff60', fontSize: 10}}
+            stroke={axisColor} 
+            tick={{fill: axisColor, fontSize: 10}}
             tickLine={false}
             axisLine={false}
             width={45}
             tickFormatter={(val) => val.toFixed(2)}
           />
           
-          <Tooltip content={<CustomTooltip />} cursor={{stroke: 'rgba(255,255,255,0.1)', strokeWidth: 2}} />
+          <Tooltip content={<CustomTooltip />} cursor={{stroke: axisColor, strokeWidth: 2}} />
           
           {/* Top Level (Ground) */}
           <Area 
@@ -147,8 +151,8 @@ const SchematicGraph: React.FC<SchematicGraphProps> = ({ data }) => {
           />
           
            {/* Reference lines to simulate manholes */}
-           <ReferenceLine x={0} stroke="#ffffff20" strokeDasharray="3 3" label={{ value: 'START', position: 'top', fill: '#ffffff40', fontSize: 10 }} />
-           <ReferenceLine x={data.distance} stroke="#ffffff20" strokeDasharray="3 3" label={{ value: 'END', position: 'top', fill: '#ffffff40', fontSize: 10 }} />
+           <ReferenceLine x={0} stroke={axisColor} strokeDasharray="3 3" label={{ value: 'START', position: 'top', fill: axisColor, fontSize: 10 }} />
+           <ReferenceLine x={data.distance} stroke={axisColor} strokeDasharray="3 3" label={{ value: 'END', position: 'top', fill: axisColor, fontSize: 10 }} />
 
         </ComposedChart>
       </ResponsiveContainer>

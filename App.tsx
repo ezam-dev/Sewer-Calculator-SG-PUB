@@ -1,6 +1,5 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
-import { Calculator, AlertTriangle, CheckCircle2, Settings2, TrendingDown, ArrowUpRight, Droplets, ChevronDown, ArrowRight, Copy, History, Save, RefreshCcw, Mail, Phone, Info, ListPlus, FileText, X, Activity, Trash2 } from 'lucide-react';
+import { Calculator, AlertTriangle, CheckCircle2, Settings2, TrendingDown, ArrowUpRight, Droplets, ChevronDown, ArrowRight, Copy, History, Save, RefreshCcw, Mail, Phone, Info, ListPlus, FileText, X, Activity, Trash2, Sun, Moon } from 'lucide-react';
 import { LiquidCard } from './components/LiquidCard';
 import { InputGroup } from './components/InputGroup';
 import SchematicGraph from './components/SchematicGraph';
@@ -8,6 +7,9 @@ import { CalculationMode, CalculationResult, SewerNode, HistoryEntry } from './t
 import { DEFAULT_VALUES, PUB_STANDARDS, PUMPING_STANDARDS, PIPE_OPTIONS, PUMPING_PIPES, DRAIN_LINE_CONSTRAINTS, IC_STANDARDS, DROP_STRUCTURE_THRESHOLDS } from './constants';
 
 const App: React.FC = () => {
+  // Theme State
+  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+
   // State
   const [mode, setMode] = useState<CalculationMode>(CalculationMode.DOWNSTREAM);
   
@@ -42,6 +44,19 @@ const App: React.FC = () => {
   const [showStandards, setShowStandards] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
+  // Theme Effect
+  useEffect(() => {
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme(prev => prev === 'dark' ? 'light' : 'dark');
+  };
+
   // Derived Lists
   const allPipes = useMemo(() => {
     return isPumpingMain ? [...PIPE_OPTIONS, ...PUMPING_PIPES] : PIPE_OPTIONS;
@@ -67,7 +82,6 @@ const App: React.FC = () => {
   useEffect(() => {
     if (currentPipe) {
       setPipeId(currentPipe.id);
-      // Ensure visual dropdowns match the fallback logic if selection became invalid
       if (currentPipe.diameter !== selectedDiameter) setSelectedDiameter(currentPipe.diameter);
       if (currentPipe.material !== selectedMaterial) setSelectedMaterial(currentPipe.material);
     }
@@ -262,25 +276,18 @@ const App: React.FC = () => {
     setDistance(entry.inputs.distance);
     setGradient(entry.inputs.gradient);
     setPipeId(entry.inputs.pipeId);
-
-    // Sync depths
     if (entry.inputs.tl1 !== '' && entry.inputs.il1 !== '') {
       setDepth1((Number(entry.inputs.tl1) - Number(entry.inputs.il1)).toFixed(3));
     } else {
       setDepth1('');
     }
-
     if (entry.inputs.tl2 !== '' && entry.inputs.il2 !== '') {
       setDepth2((Number(entry.inputs.tl2) - Number(entry.inputs.il2)).toFixed(3));
     } else {
       setDepth2('');
     }
-    
-    // Also restore material selection based on pipeId
-    // Check both standard and pumping pipes
     const pipe = [...PIPE_OPTIONS, ...PUMPING_PIPES].find(p => p.id === entry.inputs.pipeId);
     if (pipe) {
-      // If it's a small pipe, ensure pumping main mode is on to visualize it correctly
       if (pipe.diameter < 150) {
         setIsPumpingMain(true);
       }
@@ -302,7 +309,6 @@ const App: React.FC = () => {
 
   const handleNodeCopy = (ic: string, tl: number, il: number) => {
     const depth = tl - il;
-    // Format specifically for CAD MText
     const text = `IC ${ic}\nTL: ${tl.toFixed(2)}\nIL: ${il.toFixed(2)}\nD: ${depth.toFixed(2)} m`;
 
     navigator.clipboard.writeText(text).then(() => {
@@ -313,7 +319,6 @@ const App: React.FC = () => {
 
   const handleReportCopy = () => {
     if (!result) return;
-    
     const text = `SEWERAGE LINE DATA (PUB COMPLIANCE CHECK)
 =========================================
 Date: ${new Date().toLocaleString()}
@@ -345,27 +350,22 @@ ${result.complianceIssues.length > 0 ? 'Issues:\n' + result.complianceIssues.map
     navigator.clipboard.writeText(text).then(() => {
       setShowCopyFeedback(true);
       setTimeout(() => setShowCopyFeedback(false), 2000);
-      saveToHistory(); // Auto-save on copy
+      saveToHistory();
     });
   };
 
   const handleScheduleCopy = () => {
     if (history.length === 0) return;
-    
-    // Format: Run 1: ø225 VCP 30m 1:120
     const runs = [...history].reverse();
-    
     const lines = runs.map((entry, index) => {
       return `Run ${index + 1}: ø${entry.result.pipe.diameter} ${entry.result.pipe.material} ${entry.result.distance.toFixed(2)}m 1:${Math.abs(entry.result.gradient).toFixed(0)}`;
     });
-
     const text = `PROJECT SCHEDULE - PIPE RUNS
 ============================
 Date: ${new Date().toLocaleDateString()}
 
 ${lines.join('\n')}
 `;
-
     navigator.clipboard.writeText(text).then(() => {
       setShowScheduleCopyFeedback(true);
       setTimeout(() => setShowScheduleCopyFeedback(false), 2000);
@@ -374,80 +374,177 @@ ${lines.join('\n')}
 
   const handleRunCopy = (entry: HistoryEntry, runLabel: string) => {
     const text = `${runLabel}: ø${entry.result.pipe.diameter} ${entry.result.pipe.material} ${entry.result.distance.toFixed(2)}m 1:${Math.abs(entry.result.gradient).toFixed(0)}`;
-
     navigator.clipboard.writeText(text).then(() => {
       setCopiedNode(entry.id);
       setTimeout(() => setCopiedNode(null), 2000);
     });
   };
 
-  // Gradient Validation for UI Warning
   const isGradientWarning = result && Math.abs(result.gradient) > currentPipe.minGradient;
-  
-  // Distance Validation for UI Warning
   const isDistanceWarning = Number(distance) > DRAIN_LINE_CONSTRAINTS.maxLength;
-
-  // Calculated percentage
   const gradientPercentage = result ? (100 / Math.abs(result.gradient)).toFixed(2) : '0.00';
 
+  // Panels defined as variables to allow swapping order based on mode
+  const UpstreamPanel = (
+    <LiquidCard key="upstream" className={mode === CalculationMode.UPSTREAM ? 'ring-2 ring-purple-500/50' : ''}>
+      <div className="flex justify-between items-center mb-6">
+         <div className="flex items-center gap-3">
+           <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500/20 to-cyan-500/20 flex items-center justify-center border border-blue-400/30 text-blue-600 dark:text-blue-300 font-bold text-sm shadow-[0_0_15px_rgba(59,130,246,0.2)]">IC</div>
+           <input 
+              type="text" 
+              value={ic1} 
+              onChange={(e) => setIc1(e.target.value)} 
+              className="bg-transparent border-b border-slate-300 dark:border-white/10 w-24 text-xl text-slate-800 dark:text-white font-semibold focus:outline-none focus:border-blue-400 transition-colors"
+            />
+         </div>
+         <div className="flex items-center gap-2">
+           {result && (
+              <button 
+                onClick={() => handleNodeCopy(result.startNode.id, result.startNode.tl, result.startNode.il)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 text-[10px] font-bold text-blue-600 dark:text-blue-300 transition-all active:scale-95"
+                title="Copy for CAD"
+              >
+                {copiedNode === result.startNode.id ? <CheckCircle2 size={12} /> : <Copy size={12} />}
+                <span>{copiedNode === result.startNode.id ? 'COPIED' : 'COPY'}</span>
+              </button>
+           )}
+           <div className="px-3 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-[10px] font-bold text-blue-600 dark:text-blue-300 uppercase tracking-widest">
+             Upstream
+           </div>
+         </div>
+      </div>
+      
+      <div className="space-y-4">
+        <InputGroup label="Top Level (TL)" value={tl1} onChange={handleTl1Change} unit="m" placeholder="0.00" />
+        <InputGroup 
+          label="Invert Level (IL)" 
+          value={mode === CalculationMode.UPSTREAM && result ? result.startNode.il.toFixed(3) : il1} 
+          onChange={handleIl1Change} 
+          unit="m" 
+          placeholder="0.00"
+          readOnly={mode === CalculationMode.UPSTREAM}
+        />
+        <InputGroup 
+          label="Depth"
+          value={mode === CalculationMode.UPSTREAM && result ? result.startNode.depth.toFixed(3) : depth1}
+          onChange={mode === CalculationMode.UPSTREAM ? () => {} : handleDepth1Change}
+          unit="m"
+          placeholder="0.00"
+          readOnly={mode === CalculationMode.UPSTREAM}
+        />
+      </div>
+    </LiquidCard>
+  );
+
+  const DownstreamPanel = (
+    <LiquidCard key="downstream" className={mode === CalculationMode.DOWNSTREAM ? 'ring-2 ring-cyan-500/50' : ''}>
+      <div className="flex justify-between items-center mb-6">
+         <div className="flex items-center gap-3">
+           <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500/20 to-pink-500/20 flex items-center justify-center border border-purple-400/30 text-purple-600 dark:text-purple-300 font-bold text-sm shadow-[0_0_15px_rgba(168,85,247,0.2)]">IC</div>
+           <input 
+              type="text" 
+              value={ic2} 
+              onChange={(e) => setIc2(e.target.value)} 
+              className="bg-transparent border-b border-slate-300 dark:border-white/10 w-24 text-xl text-slate-800 dark:text-white font-semibold focus:outline-none focus:border-purple-400 transition-colors"
+            />
+         </div>
+         <div className="flex items-center gap-2">
+           {result && (
+              <button 
+                onClick={() => handleNodeCopy(result.endNode.id, result.endNode.tl, result.endNode.il)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/20 text-[10px] font-bold text-purple-600 dark:text-purple-300 transition-all active:scale-95"
+                title="Copy for CAD"
+              >
+                {copiedNode === result.endNode.id ? <CheckCircle2 size={12} /> : <Copy size={12} />}
+                <span>{copiedNode === result.endNode.id ? 'COPIED' : 'COPY'}</span>
+              </button>
+           )}
+           <div className="px-3 py-1.5 rounded-full bg-purple-500/10 border border-purple-500/20 text-[10px] font-bold text-purple-600 dark:text-purple-300 uppercase tracking-widest">
+             Downstream
+           </div>
+         </div>
+      </div>
+      
+      <div className="space-y-4">
+        <InputGroup label="Top Level (TL)" value={tl2} onChange={handleTl2Change} unit="m" placeholder="0.00" />
+        <InputGroup 
+          label="Invert Level (IL)" 
+          value={mode === CalculationMode.DOWNSTREAM && result ? result.endNode.il.toFixed(3) : il2} 
+          onChange={handleIl2Change} 
+          unit="m" 
+          placeholder="0.00"
+          readOnly={mode === CalculationMode.DOWNSTREAM}
+        />
+        <InputGroup 
+          label="Depth"
+          value={mode === CalculationMode.DOWNSTREAM && result ? result.endNode.depth.toFixed(3) : depth2}
+          onChange={mode === CalculationMode.DOWNSTREAM ? () => {} : handleDepth2Change}
+          unit="m"
+          placeholder="0.00"
+          readOnly={mode === CalculationMode.DOWNSTREAM}
+        />
+      </div>
+    </LiquidCard>
+  );
+
   return (
-    <div className="min-h-screen w-full p-4 md:p-8 flex flex-col items-center relative overflow-x-hidden selection:bg-cyan-500/30">
+    <div className={`min-h-screen w-full p-4 md:p-8 flex flex-col items-center relative overflow-x-hidden selection:bg-cyan-500/30 bg-slate-100 dark:bg-transparent transition-colors duration-500`}>
       
       {/* Background Liquid Ambience */}
-      <div className="fixed top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
-        <div className="absolute top-[-10%] left-[-10%] w-[800px] h-[800px] bg-purple-900/20 rounded-full blur-[120px] animate-pulse"></div>
-        <div className="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] bg-blue-900/20 rounded-full blur-[120px]"></div>
-        <div className="absolute top-[40%] left-[40%] w-[400px] h-[400px] bg-cyan-500/10 rounded-full blur-[100px]"></div>
+      <div className="fixed top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0 bg-gradient-to-br from-blue-50 to-cyan-100 dark:from-[#24243e] dark:via-[#302b63] dark:to-[#0f0c29] transition-colors duration-700">
+        <div className="absolute top-[-10%] left-[-10%] w-[800px] h-[800px] bg-purple-300/30 dark:bg-purple-900/20 rounded-full blur-[120px] animate-pulse"></div>
+        <div className="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] bg-blue-300/30 dark:bg-blue-900/20 rounded-full blur-[120px]"></div>
+        <div className="absolute top-[40%] left-[40%] w-[400px] h-[400px] bg-cyan-200/30 dark:bg-cyan-500/10 rounded-full blur-[100px]"></div>
       </div>
 
       {/* Standards Popup */}
       {showStandards && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in zoom-in-95 duration-200">
-          <div className="bg-[#1a1f3c] border border-white/10 rounded-3xl p-6 max-w-md w-full shadow-2xl relative overflow-y-auto max-h-[90vh]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/20 dark:bg-black/60 backdrop-blur-sm animate-in fade-in zoom-in-95 duration-200">
+          <div className="bg-white dark:bg-[#1a1f3c] border border-black/5 dark:border-white/10 rounded-3xl p-6 max-w-md w-full shadow-2xl relative overflow-y-auto max-h-[90vh]">
             <button 
               onClick={() => setShowStandards(false)}
-              className="absolute top-4 right-4 text-white/40 hover:text-white"
+              className="absolute top-4 right-4 text-slate-400 dark:text-white/40 hover:text-slate-900 dark:hover:text-white"
             >
               <X size={24} />
             </button>
-            <div className="flex items-center gap-3 mb-4 text-cyan-300">
+            <div className="flex items-center gap-3 mb-4 text-cyan-600 dark:text-cyan-300">
               <Info size={24} />
-              <h3 className="text-xl font-bold text-white">PUB Standard Reference</h3>
+              <h3 className="text-xl font-bold text-slate-800 dark:text-white">PUB Standard Reference</h3>
             </div>
             <div className="space-y-4">
-              <div className="p-3 bg-white/5 rounded-xl border border-white/5">
-                <p className="text-xs uppercase text-white/40 mb-1">Velocity Limits</p>
+              <div className="p-3 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/5">
+                <p className="text-xs uppercase text-slate-500 dark:text-white/40 mb-1">Velocity Limits</p>
                 <div className="flex justify-between items-center">
-                  <span className="text-white">Gravity Min</span>
-                  <span className="font-mono text-emerald-400">{PUB_STANDARDS.minVelocity} m/s</span>
+                  <span className="text-slate-700 dark:text-white">Gravity Min</span>
+                  <span className="font-mono text-emerald-600 dark:text-emerald-400">{PUB_STANDARDS.minVelocity} m/s</span>
                 </div>
                 <div className="flex justify-between items-center mt-1">
-                  <span className="text-white">Pumping Min</span>
-                  <span className="font-mono text-emerald-400">{PUMPING_STANDARDS.minVelocity} m/s</span>
+                  <span className="text-slate-700 dark:text-white">Pumping Min</span>
+                  <span className="font-mono text-emerald-600 dark:text-emerald-400">{PUMPING_STANDARDS.minVelocity} m/s</span>
                 </div>
                 <div className="flex justify-between items-center mt-1">
-                  <span className="text-white">Maximum</span>
-                  <span className="font-mono text-red-400">{PUB_STANDARDS.maxVelocity} m/s</span>
+                  <span className="text-slate-700 dark:text-white">Maximum</span>
+                  <span className="font-mono text-red-500 dark:text-red-400">{PUB_STANDARDS.maxVelocity} m/s</span>
                 </div>
               </div>
-              <div className="p-3 bg-white/5 rounded-xl border border-white/5">
-                 <p className="text-xs uppercase text-white/40 mb-1">Hydraulic Drops</p>
+              <div className="p-3 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/5">
+                 <p className="text-xs uppercase text-slate-500 dark:text-white/40 mb-1">Hydraulic Drops</p>
                  <div className="flex justify-between items-center">
-                   <span className="text-white">≥ 0.5m</span>
-                   <span className="font-mono text-amber-400">Backdrop Required</span>
+                   <span className="text-slate-700 dark:text-white">≥ 0.5m</span>
+                   <span className="font-mono text-amber-600 dark:text-amber-400">Backdrop Required</span>
                  </div>
                  <div className="flex justify-between items-center mt-1">
-                   <span className="text-white">> 6.0m</span>
-                   <span className="font-mono text-red-400">Vortex Drop Required</span>
+                   <span className="text-slate-700 dark:text-white">> 6.0m</span>
+                   <span className="font-mono text-red-500 dark:text-red-400">Vortex Drop Required</span>
                  </div>
               </div>
-              <div className="p-3 bg-white/5 rounded-xl border border-white/5">
-                 <p className="text-xs uppercase text-white/40 mb-1">Maximum Length</p>
+              <div className="p-3 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/5">
+                 <p className="text-xs uppercase text-slate-500 dark:text-white/40 mb-1">Maximum Length</p>
                  <div className="flex justify-between items-center">
-                   <span className="text-white">Gravity Sewer</span>
-                   <span className="font-mono text-emerald-400">50 m</span>
+                   <span className="text-slate-700 dark:text-white">Gravity Sewer</span>
+                   <span className="font-mono text-emerald-600 dark:text-emerald-400">50 m</span>
                  </div>
-                 <p className="text-[10px] text-white/30 mt-1">Section 4.2.1(b)(i) - Provide intermediate ICs for longer runs.</p>
+                 <p className="text-[10px] text-slate-400 dark:text-white/30 mt-1">Section 4.2.1(b)(i) - Provide intermediate ICs for longer runs.</p>
               </div>
             </div>
           </div>
@@ -456,20 +553,20 @@ ${lines.join('\n')}
 
       {/* Delete Confirmation Modal */}
       {deleteConfirmId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in zoom-in-95 duration-200">
-          <div className="bg-[#1a1f3c] border border-white/10 rounded-3xl p-6 max-w-sm w-full shadow-2xl relative">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/20 dark:bg-black/60 backdrop-blur-sm animate-in fade-in zoom-in-95 duration-200">
+          <div className="bg-white dark:bg-[#1a1f3c] border border-black/5 dark:border-white/10 rounded-3xl p-6 max-w-sm w-full shadow-2xl relative">
             <div className="flex flex-col items-center text-center gap-4">
-              <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center text-red-400">
+              <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center text-red-500 dark:text-red-400">
                 <Trash2 size={24} />
               </div>
               <div>
-                <h3 className="text-lg font-bold text-white mb-1">Delete Run?</h3>
-                <p className="text-sm text-white/60">This will remove this run from your project schedule. This action cannot be undone.</p>
+                <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-1">Delete Run?</h3>
+                <p className="text-sm text-slate-500 dark:text-white/60">This will remove this run from your project schedule. This action cannot be undone.</p>
               </div>
               <div className="flex gap-3 w-full mt-2">
                 <button 
                   onClick={() => setDeleteConfirmId(null)}
-                  className="flex-1 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-white/80 text-sm font-medium transition-colors"
+                  className="flex-1 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-slate-700 dark:text-white/80 text-sm font-medium transition-colors"
                 >
                   Cancel
                 </button>
@@ -488,115 +585,106 @@ ${lines.join('\n')}
       <div className="max-w-7xl w-full grid grid-cols-1 lg:grid-cols-12 gap-6 z-10 mb-12">
         
         {/* Header & Mode Selection */}
-        <div className="lg:col-span-12 flex flex-col md:flex-row justify-between items-center gap-6 mb-4">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-2xl shadow-lg shadow-cyan-500/20">
-              <Droplets className="text-white h-8 w-8" />
+        <div className="lg:col-span-12 flex flex-col md:flex-row justify-between items-center gap-6 mb-8 relative z-20">
+          
+          {/* Logo Section */}
+          <div className="flex items-center gap-4 group">
+            <div className="relative">
+              <div className="absolute -inset-2 bg-cyan-500/20 rounded-full blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+              <div className="relative p-3 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-2xl shadow-lg shadow-cyan-500/20 text-white transform transition-transform duration-500 group-hover:scale-105 group-hover:rotate-3">
+                <Droplets className="h-8 w-8" strokeWidth={1.5} />
+              </div>
             </div>
             <div>
-              <h1 className="text-3xl md:text-4xl font-bold text-white tracking-tight">
-                Sewerage<span className="font-light text-cyan-400">Pro</span>
+              <h1 className="text-3xl md:text-4xl font-bold text-slate-800 dark:text-white tracking-tight drop-shadow-sm">
+                Sewerage<span className="font-light text-cyan-600 dark:text-cyan-400">Pro</span>
               </h1>
-              <p className="text-white/40 text-sm font-medium">PUB Code of Practice • Singapore</p>
+              <p className="text-slate-500 dark:text-white/40 text-sm font-medium tracking-wide">PUB Code of Practice • Singapore</p>
             </div>
           </div>
 
-          <div className="p-1.5 bg-white/5 backdrop-blur-xl rounded-full border border-white/10 flex items-center gap-1 shadow-2xl overflow-x-auto max-w-full">
-             <button 
-               onClick={() => setMode(CalculationMode.DOWNSTREAM)}
-               className={`px-5 py-2.5 rounded-full text-sm font-medium transition-all duration-300 flex items-center gap-2 whitespace-nowrap ${mode === CalculationMode.DOWNSTREAM ? 'bg-cyan-500 text-white shadow-[0_0_20px_rgba(6,182,212,0.4)]' : 'text-white/60 hover:text-white hover:bg-white/10'}`}
-             >
-               <TrendingDown size={16} />
-               Slope Down
-             </button>
-             <button 
-               onClick={() => setMode(CalculationMode.UPSTREAM)}
-               className={`px-5 py-2.5 rounded-full text-sm font-medium transition-all duration-300 flex items-center gap-2 whitespace-nowrap ${mode === CalculationMode.UPSTREAM ? 'bg-purple-500 text-white shadow-[0_0_20px_rgba(168,85,247,0.4)]' : 'text-white/60 hover:text-white hover:bg-white/10'}`}
-             >
-               <ArrowUpRight size={16} />
-               Slope Up
-             </button>
-             <button 
-               onClick={() => setMode(CalculationMode.VERIFY)}
-               className={`px-5 py-2.5 rounded-full text-sm font-medium transition-all duration-300 flex items-center gap-2 whitespace-nowrap ${mode === CalculationMode.VERIFY ? 'bg-emerald-500 text-white shadow-[0_0_20px_rgba(16,185,129,0.4)]' : 'text-white/60 hover:text-white hover:bg-white/10'}`}
-             >
-               <Settings2 size={16} />
-               Verify
-             </button>
+          {/* Dynamic Island Control Panel */}
+          <div className="flex items-center p-1.5 gap-2 rounded-[2.5rem] bg-white/70 dark:bg-[#0f0c29]/60 backdrop-blur-2xl border border-white/50 dark:border-white/10 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.3)] transition-all duration-500 hover:shadow-[0_20px_40px_rgb(0,0,0,0.08)] dark:hover:shadow-[0_20px_40px_rgb(0,0,0,0.5)] hover:scale-[1.01] ring-1 ring-white/40 dark:ring-white/5">
+            
+            {/* Mode Switcher Pill */}
+            <div className="flex p-1.5 bg-slate-200/50 dark:bg-white/5 rounded-[2rem] relative">
+              <button 
+                onClick={() => setMode(CalculationMode.DOWNSTREAM)}
+                className={`relative flex items-center justify-center gap-2 px-5 py-2.5 rounded-[1.6rem] text-sm font-semibold transition-all duration-300 outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 ${
+                  mode === CalculationMode.DOWNSTREAM 
+                    ? 'bg-white dark:bg-[#24243e] text-cyan-600 dark:text-cyan-400 shadow-sm ring-1 ring-black/5 dark:ring-white/10 scale-100' 
+                    : 'text-slate-500 dark:text-white/40 hover:text-slate-700 dark:hover:text-white/80 hover:bg-white/40 dark:hover:bg-white/5 scale-95 hover:scale-95'
+                }`}
+              >
+                <TrendingDown size={18} strokeWidth={2.5} />
+                <span className="hidden md:inline">Slope Down</span>
+              </button>
+              
+              <button 
+                onClick={() => setMode(CalculationMode.UPSTREAM)}
+                className={`relative flex items-center justify-center gap-2 px-5 py-2.5 rounded-[1.6rem] text-sm font-semibold transition-all duration-300 outline-none focus-visible:ring-2 focus-visible:ring-purple-400 ${
+                  mode === CalculationMode.UPSTREAM 
+                    ? 'bg-white dark:bg-[#24243e] text-purple-600 dark:text-purple-400 shadow-sm ring-1 ring-black/5 dark:ring-white/10 scale-100' 
+                    : 'text-slate-500 dark:text-white/40 hover:text-slate-700 dark:hover:text-white/80 hover:bg-white/40 dark:hover:bg-white/5 scale-95 hover:scale-95'
+                }`}
+              >
+                <ArrowUpRight size={18} strokeWidth={2.5} />
+                <span className="hidden md:inline">Slope Up</span>
+              </button>
+
+              <button 
+                onClick={() => setMode(CalculationMode.VERIFY)}
+                className={`relative flex items-center justify-center gap-2 px-5 py-2.5 rounded-[1.6rem] text-sm font-semibold transition-all duration-300 outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 ${
+                  mode === CalculationMode.VERIFY 
+                    ? 'bg-white dark:bg-[#24243e] text-emerald-600 dark:text-emerald-400 shadow-sm ring-1 ring-black/5 dark:ring-white/10 scale-100' 
+                    : 'text-slate-500 dark:text-white/40 hover:text-slate-700 dark:hover:text-white/80 hover:bg-white/40 dark:hover:bg-white/5 scale-95 hover:scale-95'
+                }`}
+              >
+                <Settings2 size={18} strokeWidth={2.5} />
+                <span className="hidden md:inline">Verify</span>
+              </button>
+            </div>
+
+            {/* Divider */}
+            <div className="w-px h-8 bg-slate-200 dark:bg-white/10 mx-1"></div>
+
+            {/* Theme Toggle */}
+            <button
+              onClick={toggleTheme}
+              className="relative p-3 rounded-full text-slate-500 dark:text-white/40 hover:bg-white/50 dark:hover:bg-white/10 hover:text-amber-500 dark:hover:text-yellow-300 transition-all duration-300 hover:shadow-sm active:scale-90 active:rotate-90"
+              title="Toggle Theme"
+            >
+              <div className="relative z-10">
+                {theme === 'dark' ? <Sun size={20} strokeWidth={2.5} /> : <Moon size={20} strokeWidth={2.5} />}
+              </div>
+            </button>
           </div>
         </div>
 
         {/* Left Column: Inputs */}
         <div className="lg:col-span-4 flex flex-col gap-6">
           
-          {/* Upstream Node (Start) */}
-          <LiquidCard className={mode === CalculationMode.UPSTREAM ? 'ring-2 ring-purple-500/50' : ''}>
-            <div className="flex justify-between items-center mb-6">
-               <div className="flex items-center gap-3">
-                 <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500/20 to-cyan-500/20 flex items-center justify-center border border-blue-400/30 text-blue-300 font-bold text-sm shadow-[0_0_15px_rgba(59,130,246,0.2)]">IC</div>
-                 <input 
-                    type="text" 
-                    value={ic1} 
-                    onChange={(e) => setIc1(e.target.value)} 
-                    className="bg-transparent border-b border-white/10 w-24 text-xl text-white font-semibold focus:outline-none focus:border-blue-400 transition-colors"
-                  />
-               </div>
-               <div className="flex items-center gap-2">
-                 {result && (
-                    <button 
-                      onClick={() => handleNodeCopy(result.startNode.id, result.startNode.tl, result.startNode.il)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 text-[10px] font-bold text-blue-300 transition-all active:scale-95"
-                      title="Copy for CAD"
-                    >
-                      {copiedNode === result.startNode.id ? <CheckCircle2 size={12} /> : <Copy size={12} />}
-                      <span>{copiedNode === result.startNode.id ? 'COPIED' : 'COPY'}</span>
-                    </button>
-                 )}
-                 <div className="px-3 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-[10px] font-bold text-blue-300 uppercase tracking-widest">
-                   Upstream
-                 </div>
-               </div>
-            </div>
-            
-            <div className="space-y-4">
-              <InputGroup label="Top Level (TL)" value={tl1} onChange={handleTl1Change} unit="m" placeholder="0.00" />
-              <InputGroup 
-                label="Invert Level (IL)" 
-                value={mode === CalculationMode.UPSTREAM && result ? result.startNode.il.toFixed(3) : il1} 
-                onChange={handleIl1Change} 
-                unit="m" 
-                placeholder="0.00"
-                readOnly={mode === CalculationMode.UPSTREAM}
-              />
-              <InputGroup 
-                label="Depth"
-                value={mode === CalculationMode.UPSTREAM && result ? result.startNode.depth.toFixed(3) : depth1}
-                onChange={mode === CalculationMode.UPSTREAM ? () => {} : handleDepth1Change}
-                unit="m"
-                placeholder="0.00"
-                readOnly={mode === CalculationMode.UPSTREAM}
-              />
-            </div>
-          </LiquidCard>
+          {/* Top Panel (Upstream or Downstream based on mode) */}
+          {mode === CalculationMode.UPSTREAM ? DownstreamPanel : UpstreamPanel}
 
           {/* Connection Parameters */}
           <LiquidCard>
              <div className="flex items-center justify-between mb-6 gap-4">
                 <div className="flex items-center gap-2">
-                   <div className="h-px w-4 bg-white/10"></div>
-                   <span className="text-xs font-medium text-white/40 uppercase tracking-widest whitespace-nowrap">Pipe Connection</span>
-                   <div className="h-px w-8 bg-white/10"></div>
+                   <div className="h-px w-4 bg-slate-300 dark:bg-white/10"></div>
+                   <span className="text-xs font-medium text-slate-400 dark:text-white/40 uppercase tracking-widest whitespace-nowrap">Pipe Connection</span>
+                   <div className="h-px w-8 bg-slate-300 dark:bg-white/10"></div>
                 </div>
                 
                 {/* Pumping Main Toggle */}
                 <button 
                    onClick={() => setIsPumpingMain(!isPumpingMain)}
-                   className={`flex items-center gap-2 px-2 py-1 rounded-full border transition-all duration-300 ${isPumpingMain ? 'bg-pink-500/10 border-pink-500/30 text-pink-300' : 'bg-white/5 border-white/5 text-white/30 hover:border-white/20'}`}
+                   className={`flex items-center gap-2 px-2 py-1 rounded-full border transition-all duration-300 ${isPumpingMain ? 'bg-pink-500/10 border-pink-500/30 text-pink-600 dark:text-pink-300' : 'bg-slate-100 dark:bg-white/5 border-slate-200 dark:border-white/5 text-slate-400 dark:text-white/30 hover:border-slate-300 dark:hover:border-white/20'}`}
                    title="Enable pumping main options (allows ø100mm)"
                 >
                    <Activity size={12} />
                    <span className="text-[10px] font-bold uppercase">Pumping Main</span>
-                   <div className={`w-2 h-2 rounded-full ${isPumpingMain ? 'bg-pink-400 shadow-[0_0_8px_rgba(236,72,153,0.6)]' : 'bg-white/20'}`}></div>
+                   <div className={`w-2 h-2 rounded-full ${isPumpingMain ? 'bg-pink-500 dark:bg-pink-400 shadow-[0_0_8px_rgba(236,72,153,0.6)]' : 'bg-slate-300 dark:bg-white/20'}`}></div>
                 </button>
              </div>
 
@@ -606,22 +694,22 @@ ${lines.join('\n')}
                 <div className="grid grid-cols-2 gap-4">
                   {/* Size (MM) on the LEFT */}
                   <div className="flex flex-col gap-1.5">
-                     <label className="text-xs font-medium text-blue-200/70 uppercase tracking-wider ml-1">
+                     <label className="text-xs font-medium text-slate-500 dark:text-blue-200/70 uppercase tracking-wider ml-1">
                         SEWER SIZE (MM)
                      </label>
                      <div className="relative group/select">
                       <select 
                         value={selectedDiameter} 
                         onChange={(e) => setSelectedDiameter(Number(e.target.value))}
-                        className="w-full bg-black/20 border border-white/10 text-white text-sm rounded-2xl px-3 py-3 appearance-none focus:border-cyan-400/50 outline-none transition-all cursor-pointer hover:bg-white/5 focus:scale-[1.02] focus:bg-black/30 ease-out duration-300"
+                        className="w-full bg-white/50 dark:bg-black/20 border border-slate-200 dark:border-white/10 text-slate-800 dark:text-white text-sm rounded-2xl px-3 py-3 appearance-none focus:border-cyan-400/50 outline-none transition-all cursor-pointer hover:bg-white/80 dark:hover:bg-white/5 focus:scale-[1.02] focus:bg-white dark:focus:bg-black/30 ease-out duration-300"
                       >
                         {availableDiameters.map(d => (
-                          <option key={d} value={d} className="bg-[#24243e] text-white">ø{d}</option>
+                          <option key={d} value={d} className="bg-white dark:bg-[#24243e] text-slate-800 dark:text-white">ø{d}</option>
                         ))}
                       </select>
-                      <ChevronDown className="absolute right-3 top-3.5 text-white/40 w-4 h-4 pointer-events-none" />
+                      <ChevronDown className="absolute right-3 top-3.5 text-slate-400 dark:text-white/40 w-4 h-4 pointer-events-none" />
                     </div>
-                     <span className="text-[9px] text-white/30 ml-1">
+                     <span className="text-[9px] text-slate-400 dark:text-white/30 ml-1">
                         Min ø150mm {isPumpingMain ? '(ø100mm enabled)' : '(ø200mm Public)'}
                      </span>
                   </div>
@@ -629,9 +717,9 @@ ${lines.join('\n')}
                   {/* Material on the RIGHT */}
                   <div className="flex flex-col gap-1.5">
                     <div className="flex items-center gap-2">
-                      <label className="text-xs font-medium text-blue-200/70 uppercase tracking-wider ml-1">Material</label>
+                      <label className="text-xs font-medium text-slate-500 dark:text-blue-200/70 uppercase tracking-wider ml-1">Material</label>
                       <button onClick={() => setShowStandards(true)} className="group relative outline-none">
-                        <Info size={12} className="text-white/30 hover:text-cyan-400 transition-colors" />
+                        <Info size={12} className="text-slate-400 dark:text-white/30 hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors" />
                       </button>
                     </div>
                     <div className="relative group/select">
@@ -639,29 +727,28 @@ ${lines.join('\n')}
                         value={selectedMaterial} 
                         onChange={(e) => {
                           setSelectedMaterial(e.target.value);
-                          // logic handled in effect
                         }}
-                        className="w-full bg-black/20 border border-white/10 text-white text-sm rounded-2xl px-3 py-3 appearance-none focus:border-cyan-400/50 outline-none transition-all cursor-pointer hover:bg-white/5 focus:scale-[1.02] focus:bg-black/30 ease-out duration-300"
+                        className="w-full bg-white/50 dark:bg-black/20 border border-slate-200 dark:border-white/10 text-slate-800 dark:text-white text-sm rounded-2xl px-3 py-3 appearance-none focus:border-cyan-400/50 outline-none transition-all cursor-pointer hover:bg-white/80 dark:hover:bg-white/5 focus:scale-[1.02] focus:bg-white dark:focus:bg-black/30 ease-out duration-300"
                       >
                         {materials.map(m => (
-                          <option key={m} value={m} className="bg-[#24243e] text-white">{m}</option>
+                          <option key={m} value={m} className="bg-white dark:bg-[#24243e] text-slate-800 dark:text-white">{m}</option>
                         ))}
                       </select>
-                      <ChevronDown className="absolute right-3 top-3.5 text-white/40 w-4 h-4 pointer-events-none" />
+                      <ChevronDown className="absolute right-3 top-3.5 text-slate-400 dark:text-white/40 w-4 h-4 pointer-events-none" />
                     </div>
                   </div>
                 </div>
 
                 {/* Material Specs Info Row */}
-                <div className="flex justify-between items-center px-2 py-2 bg-white/5 rounded-xl border border-white/5">
+                <div className="flex justify-between items-center px-2 py-2 bg-slate-100 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/5">
                     <div className="flex items-center gap-2">
-                      <span className="text-[10px] text-white/40 uppercase">Roughness</span>
-                      <span className="text-xs font-mono text-cyan-300">n={currentPipe.n}</span>
+                      <span className="text-[10px] text-slate-500 dark:text-white/40 uppercase">Roughness</span>
+                      <span className="text-xs font-mono text-cyan-600 dark:text-cyan-300">n={currentPipe.n}</span>
                     </div>
-                    <div className="h-3 w-px bg-white/10"></div>
+                    <div className="h-3 w-px bg-slate-300 dark:bg-white/10"></div>
                     <div className="flex items-center gap-2">
-                      <span className="text-[10px] text-white/40 uppercase">Rec Min Grad</span>
-                      <span className="text-xs font-mono text-purple-300">1:{currentPipe.minGradient}</span>
+                      <span className="text-[10px] text-slate-500 dark:text-white/40 uppercase">Rec Min Grad</span>
+                      <span className="text-xs font-mono text-purple-600 dark:text-purple-300">1:{currentPipe.minGradient}</span>
                     </div>
                 </div>
 
@@ -673,8 +760,8 @@ ${lines.join('\n')}
                            <span>Distance</span>
                            <span className={`text-[9px] px-1.5 py-0.5 rounded border uppercase tracking-wider transition-all duration-300 ${
                                isDistanceWarning 
-                               ? 'bg-red-500/20 text-red-300 border-red-500/30 animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.2)]' 
-                               : 'bg-white/5 text-white/30 border-white/10'
+                               ? 'bg-red-500/10 text-red-600 dark:text-red-300 border-red-500/30 animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.2)]' 
+                               : 'bg-slate-100 dark:bg-white/5 text-slate-400 dark:text-white/30 border-slate-200 dark:border-white/10'
                            }`}>Max 50m</span>
                         </div>
                       } 
@@ -684,7 +771,7 @@ ${lines.join('\n')}
                       placeholder="0.00" 
                     />
                     {isDistanceWarning && (
-                      <div className="flex items-start gap-1.5 mt-2 px-2 py-1.5 rounded bg-red-500/10 border border-red-500/20 text-red-300 text-[10px] animate-in fade-in slide-in-from-top-1 duration-300">
+                      <div className="flex items-start gap-1.5 mt-2 px-2 py-1.5 rounded bg-red-500/10 border border-red-500/20 text-red-500 dark:text-red-300 text-[10px] animate-in fade-in slide-in-from-top-1 duration-300">
                          <AlertTriangle size={12} className="mt-0.5 shrink-0" />
                          <div className="flex flex-col">
                              <span className="font-bold">Exceeds PUB Limit (Section 4.2.1)</span>
@@ -699,7 +786,7 @@ ${lines.join('\n')}
                       label={
                           <div className="flex justify-between items-center w-full pr-1">
                            <span>Gradient (1:X)</span>
-                           {result && <span className="text-[9px] text-white/30 bg-white/5 px-1 rounded">{gradientPercentage}%</span>}
+                           {result && <span className="text-[9px] text-slate-400 dark:text-white/30 bg-slate-100 dark:bg-white/5 px-1 rounded">{gradientPercentage}%</span>}
                           </div>
                       }
                       value={mode === CalculationMode.VERIFY && result ? (result.gradient === 0 ? '0' : Math.abs(result.gradient).toFixed(1)) : gradient} 
@@ -710,7 +797,7 @@ ${lines.join('\n')}
                     />
                     {/* Warning Icon for Gradient Input */}
                     {isGradientWarning && !result?.isCompliant && mode !== CalculationMode.VERIFY && !isPumpingMain && (
-                       <div className="absolute right-0 top-0 -mt-1 flex items-center gap-1 text-amber-400 animate-pulse bg-black/50 rounded px-1">
+                       <div className="absolute right-0 top-0 -mt-1 flex items-center gap-1 text-amber-500 dark:text-amber-400 animate-pulse bg-white/50 dark:bg-black/50 rounded px-1">
                          <AlertTriangle size={10} />
                          <span className="text-[10px] font-bold">Below Min</span>
                        </div>
@@ -720,55 +807,8 @@ ${lines.join('\n')}
              </div>
           </LiquidCard>
 
-          {/* Downstream Node (End) */}
-          <LiquidCard className={mode === CalculationMode.DOWNSTREAM ? 'ring-2 ring-cyan-500/50' : ''}>
-            <div className="flex justify-between items-center mb-6">
-               <div className="flex items-center gap-3">
-                 <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500/20 to-pink-500/20 flex items-center justify-center border border-purple-400/30 text-purple-300 font-bold text-sm shadow-[0_0_15px_rgba(168,85,247,0.2)]">IC</div>
-                 <input 
-                    type="text" 
-                    value={ic2} 
-                    onChange={(e) => setIc2(e.target.value)} 
-                    className="bg-transparent border-b border-white/10 w-24 text-xl text-white font-semibold focus:outline-none focus:border-purple-400 transition-colors"
-                  />
-               </div>
-               <div className="flex items-center gap-2">
-                 {result && (
-                    <button 
-                      onClick={() => handleNodeCopy(result.endNode.id, result.endNode.tl, result.endNode.il)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/20 text-[10px] font-bold text-purple-300 transition-all active:scale-95"
-                      title="Copy for CAD"
-                    >
-                      {copiedNode === result.endNode.id ? <CheckCircle2 size={12} /> : <Copy size={12} />}
-                      <span>{copiedNode === result.endNode.id ? 'COPIED' : 'COPY'}</span>
-                    </button>
-                 )}
-                 <div className="px-3 py-1.5 rounded-full bg-purple-500/10 border border-purple-500/20 text-[10px] font-bold text-purple-300 uppercase tracking-widest">
-                   Downstream
-                 </div>
-               </div>
-            </div>
-            
-            <div className="space-y-4">
-              <InputGroup label="Top Level (TL)" value={tl2} onChange={handleTl2Change} unit="m" placeholder="0.00" />
-              <InputGroup 
-                label="Invert Level (IL)" 
-                value={mode === CalculationMode.DOWNSTREAM && result ? result.endNode.il.toFixed(3) : il2} 
-                onChange={handleIl2Change} 
-                unit="m" 
-                placeholder="0.00"
-                readOnly={mode === CalculationMode.DOWNSTREAM}
-              />
-              <InputGroup 
-                label="Depth"
-                value={mode === CalculationMode.DOWNSTREAM && result ? result.endNode.depth.toFixed(3) : depth2}
-                onChange={mode === CalculationMode.DOWNSTREAM ? () => {} : handleDepth2Change}
-                unit="m"
-                placeholder="0.00"
-                readOnly={mode === CalculationMode.DOWNSTREAM}
-              />
-            </div>
-          </LiquidCard>
+          {/* Bottom Panel (Downstream or Upstream based on mode) */}
+          {mode === CalculationMode.UPSTREAM ? UpstreamPanel : DownstreamPanel}
 
         </div>
 
@@ -779,14 +819,14 @@ ${lines.join('\n')}
           <div className="flex flex-wrap gap-3 justify-end">
             <button 
               onClick={saveToHistory}
-              className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-white/80 text-sm font-medium flex items-center gap-2 transition-all active:scale-95 hover:bg-white/10"
+              className="px-4 py-2 bg-white/70 dark:bg-white/5 hover:bg-white dark:hover:bg-white/10 border border-white/40 dark:border-white/10 rounded-xl text-slate-600 dark:text-white/80 text-sm font-medium flex items-center gap-2 transition-all active:scale-95 shadow-sm"
             >
               <ListPlus size={16} />
               Add to Schedule
             </button>
             <button 
               onClick={handleReportCopy}
-              className={`px-4 py-2 border rounded-xl text-sm font-medium flex items-center gap-2 transition-all active:scale-95 relative overflow-hidden ${showCopyFeedback ? 'bg-emerald-500/20 border-emerald-500 text-emerald-300' : 'bg-cyan-500/10 border-cyan-500/30 text-cyan-300 hover:bg-cyan-500/20'}`}
+              className={`px-4 py-2 border rounded-xl text-sm font-medium flex items-center gap-2 transition-all active:scale-95 relative overflow-hidden ${showCopyFeedback ? 'bg-emerald-500/20 border-emerald-500 text-emerald-600 dark:text-emerald-300' : 'bg-cyan-500/10 border-cyan-500/30 text-cyan-600 dark:text-cyan-300 hover:bg-cyan-500/20'}`}
             >
               {showCopyFeedback ? <CheckCircle2 size={16} /> : <Copy size={16} />}
               {showCopyFeedback ? 'Copied!' : 'Copy Report'}
@@ -796,34 +836,34 @@ ${lines.join('\n')}
           {/* Results Overview */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
              <LiquidCard className="flex flex-col justify-center items-center text-center py-8">
-                <span className="text-xs text-white/40 uppercase tracking-widest mb-2">Calculated Fall</span>
-                <span key={result?.fall} className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 to-blue-300 font-mono animate-pop-in">
+                <span className="text-xs text-slate-400 dark:text-white/40 uppercase tracking-widest mb-2">Calculated Fall</span>
+                <span key={result?.fall} className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-500 to-blue-500 dark:from-cyan-300 dark:to-blue-300 font-mono animate-pop-in">
                   {result ? result.fall.toFixed(3) : '0.000'}
-                  <span className="text-sm text-white/30 ml-1">m</span>
+                  <span className="text-sm text-slate-400 dark:text-white/30 ml-1">m</span>
                 </span>
              </LiquidCard>
              
              <LiquidCard className="flex flex-col justify-center items-center text-center py-8">
-                <span className="text-xs text-white/40 uppercase tracking-widest mb-2">Velocity</span>
+                <span className="text-xs text-slate-400 dark:text-white/40 uppercase tracking-widest mb-2">Velocity</span>
                 <span key={result?.velocity} className={`text-3xl font-bold font-mono animate-pop-in ${
-                  result?.velocity && (result.velocity < (isPumpingMain ? PUMPING_STANDARDS.minVelocity : PUB_STANDARDS.minVelocity) || result.velocity > PUB_STANDARDS.maxVelocity) ? 'text-amber-400' : 'text-emerald-300'
+                  result?.velocity && (result.velocity < (isPumpingMain ? PUMPING_STANDARDS.minVelocity : PUB_STANDARDS.minVelocity) || result.velocity > PUB_STANDARDS.maxVelocity) ? 'text-amber-500 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-300'
                 }`}>
                   {result ? result.velocity.toFixed(2) : '0.00'}
-                  <span className="text-sm text-white/30 ml-1">m/s</span>
+                  <span className="text-sm text-slate-400 dark:text-white/30 ml-1">m/s</span>
                 </span>
              </LiquidCard>
 
              <LiquidCard className={`flex flex-col justify-center items-center text-center py-8 transition-colors duration-500 ${
                 result?.isCompliant ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-red-500/10 border-red-500/20'
              }`}>
-                <span className="text-xs text-white/40 uppercase tracking-widest mb-2">Compliance</span>
+                <span className="text-xs text-slate-400 dark:text-white/40 uppercase tracking-widest mb-2">Compliance</span>
                 {result?.isCompliant ? (
-                  <div className="flex items-center gap-2 text-emerald-400 animate-pop-in">
+                  <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 animate-pop-in">
                     <CheckCircle2 size={32} />
                     <span className="font-bold">PASSED</span>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-2 text-red-400 animate-pop-in">
+                  <div className="flex items-center gap-2 text-red-500 dark:text-red-400 animate-pop-in">
                     <AlertTriangle size={32} />
                     <span className="font-bold">ISSUE</span>
                   </div>
@@ -835,9 +875,9 @@ ${lines.join('\n')}
           <LiquidCard className="flex-1 min-h-[300px] flex flex-col" title="Schematic Profile">
             <div className="flex-1 w-full h-full">
               {result ? (
-                <SchematicGraph data={result} />
+                <SchematicGraph data={result} theme={theme} />
               ) : (
-                 <div className="h-full flex items-center justify-center text-white/20">
+                 <div className="h-full flex items-center justify-center text-slate-300 dark:text-white/20">
                    <div className="flex flex-col items-center gap-2">
                       <Calculator size={40} strokeWidth={1} />
                       <span>Enter data to visualize</span>
@@ -849,14 +889,14 @@ ${lines.join('\n')}
 
           {/* Compliance Details */}
           {result && !result.isCompliant && (
-            <LiquidCard className="bg-red-900/10 border-red-500/20 animate-in fade-in slide-in-from-bottom-4 duration-500">
-               <div className="flex items-center gap-3 mb-4 text-red-400">
+            <LiquidCard className="bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-500/20 animate-in fade-in slide-in-from-bottom-4 duration-500">
+               <div className="flex items-center gap-3 mb-4 text-red-500 dark:text-red-400">
                  <AlertTriangle size={20} />
                  <h3 className="font-bold uppercase tracking-wider text-sm">Compliance Issues</h3>
                </div>
                <div className="space-y-2">
                  {result.complianceIssues.map((issue, idx) => (
-                   <div key={idx} className="flex gap-3 text-sm text-white/70 bg-black/20 p-3 rounded-xl border border-red-500/10">
+                   <div key={idx} className="flex gap-3 text-sm text-slate-700 dark:text-white/70 bg-white/50 dark:bg-black/20 p-3 rounded-xl border border-red-500/10">
                      <span className="text-red-500 font-mono opacity-50">0{idx + 1}</span>
                      {issue}
                    </div>
@@ -866,18 +906,18 @@ ${lines.join('\n')}
           )}
           
           {result && result.isCompliant && (
-             <LiquidCard className="bg-emerald-900/10 border-emerald-500/20 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <div className="flex items-center gap-3 mb-2 text-emerald-400">
+             <LiquidCard className="bg-emerald-50 dark:bg-emerald-900/10 border-emerald-200 dark:border-emerald-500/20 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <div className="flex items-center gap-3 mb-2 text-emerald-600 dark:text-emerald-400">
                   <CheckCircle2 size={20} />
                   <h3 className="font-bold uppercase tracking-wider text-sm">Design Compliant</h3>
                 </div>
                 <div className="mt-3 space-y-1 px-4">
-                  <div className="flex items-center gap-2 text-sm text-emerald-300/80">
+                  <div className="flex items-center gap-2 text-sm text-emerald-700/80 dark:text-emerald-300/80">
                      <CheckCircle2 size={14} />
                      <span>Distance within limit ({result.distance.toFixed(1)}m ≤ 50m)</span>
                   </div>
                 </div>
-                <p className="text-sm text-white/60 mt-3 pt-3 border-t border-white/5 px-4">
+                <p className="text-sm text-slate-500 dark:text-white/60 mt-3 pt-3 border-t border-emerald-200 dark:border-white/5 px-4">
                   All hydraulic parameters are within PUB Standard Code of Practice (Section 3 & 4).
                 </p>
              </LiquidCard>
@@ -897,8 +937,8 @@ ${lines.join('\n')}
                   onClick={handleScheduleCopy}
                   disabled={history.length === 0}
                   className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all ${
-                    history.length === 0 ? 'bg-white/5 text-white/20 cursor-not-allowed' : 
-                    showScheduleCopyFeedback ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-white/5 hover:bg-white/10 text-white/60 hover:text-white border border-white/10'
+                    history.length === 0 ? 'bg-slate-100 dark:bg-white/5 text-slate-300 dark:text-white/20 cursor-not-allowed' : 
+                    showScheduleCopyFeedback ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 border border-emerald-500/30' : 'bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-500 dark:text-white/60 hover:text-slate-900 dark:hover:text-white border border-slate-200 dark:border-white/10'
                   }`}
                 >
                   {showScheduleCopyFeedback ? <CheckCircle2 size={14} /> : <FileText size={14} />}
@@ -908,14 +948,14 @@ ${lines.join('\n')}
 
             <div className="overflow-x-auto mt-4">
               {history.length === 0 ? (
-                <div className="p-8 text-center text-white/20 text-sm">
+                <div className="p-8 text-center text-slate-400 dark:text-white/20 text-sm">
                   <p>No calculations added to schedule yet.</p>
                   <p className="text-xs mt-2 opacity-50">Click "Add to Schedule" to build your project run list.</p>
                 </div>
               ) : (
                 <table className="w-full text-left text-sm">
                   <thead>
-                    <tr className="border-b border-white/10 text-white/40 uppercase text-xs">
+                    <tr className="border-b border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/40 uppercase text-xs">
                       <th className="pb-3 font-medium pl-2">Run #</th>
                       <th className="pb-3 font-medium">Route</th>
                       <th className="pb-3 font-medium">Specs</th>
@@ -925,50 +965,50 @@ ${lines.join('\n')}
                       <th className="pb-3 font-medium text-right pr-2">Action</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-white/5">
+                  <tbody className="divide-y divide-slate-100 dark:divide-white/5">
                     {[...history].map((entry, idx) => (
-                      <tr key={entry.id} className="group hover:bg-white/5 transition-colors">
-                        <td className="py-3 pl-2 font-mono text-white/60">
+                      <tr key={entry.id} className="group hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
+                        <td className="py-3 pl-2 font-mono text-slate-500 dark:text-white/60">
                            Run {history.length - idx}
                         </td>
-                        <td className="py-3 text-white/80">
-                           IC {entry.inputs.ic1} <span className="text-white/30 px-1">→</span> IC {entry.inputs.ic2}
+                        <td className="py-3 text-slate-700 dark:text-white/80">
+                           IC {entry.inputs.ic1} <span className="text-slate-300 dark:text-white/30 px-1">→</span> IC {entry.inputs.ic2}
                         </td>
-                        <td className="py-3 text-white/80">
-                           <span className="text-cyan-300 font-bold">ø{entry.result.pipe.diameter}</span> {entry.result.pipe.material}
+                        <td className="py-3 text-slate-700 dark:text-white/80">
+                           <span className="text-cyan-600 dark:text-cyan-300 font-bold">ø{entry.result.pipe.diameter}</span> {entry.result.pipe.material}
                         </td>
-                        <td className="py-3 text-white/60 font-mono">
+                        <td className="py-3 text-slate-500 dark:text-white/60 font-mono">
                            {entry.result.distance.toFixed(2)}m
                         </td>
-                        <td className="py-3 text-white/80 font-mono">
+                        <td className="py-3 text-slate-700 dark:text-white/80 font-mono">
                            1:{Math.abs(entry.result.gradient).toFixed(0)}
                         </td>
                         <td className="py-3">
                            {entry.result.isCompliant ? (
-                             <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-500/10 text-emerald-400">PASS</span>
+                             <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-100 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">PASS</span>
                            ) : (
-                             <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-500/10 text-red-400">FAIL</span>
+                             <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 dark:bg-red-500/10 text-red-600 dark:text-red-400">FAIL</span>
                            )}
                         </td>
                         <td className="py-3 text-right pr-2">
                           <div className="flex justify-end items-center gap-2">
                             <button 
                                onClick={() => restoreHistory(entry)}
-                               className="p-1.5 hover:bg-cyan-500/20 text-cyan-400 rounded-lg transition-colors transform active:scale-90 hover:scale-110"
+                               className="p-1.5 hover:bg-cyan-100 dark:hover:bg-cyan-500/20 text-cyan-600 dark:text-cyan-400 rounded-lg transition-colors transform active:scale-90 hover:scale-110"
                                title="Restore and Edit"
                             >
                               <RefreshCcw size={16} />
                             </button>
                             <button 
                                onClick={() => handleRunCopy(entry, `Run ${history.length - idx}`)}
-                               className="p-1.5 hover:bg-blue-500/20 text-blue-400 rounded-lg transition-colors transform active:scale-90 hover:scale-110"
+                               className="p-1.5 hover:bg-blue-100 dark:hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 rounded-lg transition-colors transform active:scale-90 hover:scale-110"
                                title="Copy Run Details"
                             >
                               {copiedNode === entry.id ? <CheckCircle2 size={16} /> : <Copy size={16} />}
                             </button>
                             <button 
                                onClick={() => requestDelete(entry.id)}
-                               className="p-1.5 hover:bg-red-500/20 text-red-400 rounded-lg transition-colors transform active:scale-90 hover:scale-110"
+                               className="p-1.5 hover:bg-red-100 dark:hover:bg-red-500/20 text-red-600 dark:text-red-400 rounded-lg transition-colors transform active:scale-90 hover:scale-110"
                                title="Delete Run"
                             >
                               <Trash2 size={16} />
@@ -987,7 +1027,7 @@ ${lines.join('\n')}
       </div>
 
       {/* Footer / Credits */}
-      <footer className="w-full max-w-7xl mt-auto py-6 border-t border-white/10 flex flex-col md:flex-row justify-between items-center gap-4 text-white/40 text-sm z-10">
+      <footer className="w-full max-w-7xl mt-auto py-6 border-t border-slate-200 dark:border-white/10 flex flex-col md:flex-row justify-between items-center gap-4 text-slate-400 dark:text-white/40 text-sm z-10">
         <div>
           &copy; {new Date().getFullYear()} SeweragePro Calculator. All rights reserved.
         </div>
@@ -996,11 +1036,11 @@ ${lines.join('\n')}
              <span>Developed by Mohd Ezam Bin Othman</span>
           </span>
           <div className="flex items-center gap-4">
-             <a href="tel:+60105561616" className="flex items-center gap-2 hover:text-cyan-400 transition-colors">
+             <a href="tel:+60105561616" className="flex items-center gap-2 hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors">
                <Phone size={14} />
                <span>+6010-5561616</span>
              </a>
-             <a href="mailto:ezamothman@gmail.com" className="flex items-center gap-2 hover:text-cyan-400 transition-colors">
+             <a href="mailto:ezamothman@gmail.com" className="flex items-center gap-2 hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors">
                <Mail size={14} />
                <span>ezamothman@gmail.com</span>
              </a>
