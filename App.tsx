@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Calculator, AlertTriangle, CheckCircle2, Settings2, TrendingDown, ArrowUpRight, Droplets, ChevronDown, ArrowRight, Copy, History, Save, RefreshCcw, Mail, Phone, Info, ListPlus, FileText, X, Activity, Trash2, Sun, Moon, Volume2, VolumeX } from 'lucide-react';
+import { Calculator, AlertTriangle, CheckCircle2, Settings2, TrendingDown, ArrowUpRight, Droplets, ChevronDown, ArrowRight, Copy, History, Save, RefreshCcw, Mail, Phone, Info, ListPlus, FileText, X, Activity, Trash2, Sun, Moon, Volume2, VolumeX, ArrowDownToLine } from 'lucide-react';
 import { LiquidCard } from './components/LiquidCard';
 import { InputGroup } from './components/InputGroup';
 import SchematicGraph from './components/SchematicGraph';
@@ -33,6 +33,9 @@ const App: React.FC = () => {
 
   const [distance, setDistance] = useState<number | ''>(DEFAULT_VALUES.distance);
   const [gradient, setGradient] = useState<number | ''>(DEFAULT_VALUES.gradient); // 1 : X
+
+  // Branch Drop State (for Slope Up mode)
+  const [upstreamDrop, setUpstreamDrop] = useState<number>(0);
 
   // Computed Result
   const [result, setResult] = useState<CalculationResult | null>(null);
@@ -130,6 +133,11 @@ const App: React.FC = () => {
       document.documentElement.classList.remove('dark');
     }
   }, [theme]);
+
+  // Reset Upstream Drop when mode changes
+  useEffect(() => {
+    setUpstreamDrop(0);
+  }, [mode]);
 
   const toggleTheme = () => {
     triggerFeedback('switch');
@@ -405,7 +413,7 @@ const App: React.FC = () => {
   const handleNodeCopy = (ic: string, tl: number, il: number) => {
     triggerFeedback('click');
     const depth = tl - il;
-    const text = `IC ${ic}\nTL: ${tl.toFixed(2)}\nIL: ${il.toFixed(2)}\nD: ${depth.toFixed(2)} m`;
+    const text = `IC ${ic}\nTL: ${tl.toFixed(2)}\nIL: ${il.toFixed(3)}\nD: ${depth.toFixed(3)} m`;
 
     navigator.clipboard.writeText(text).then(() => {
       setCopiedNode(ic);
@@ -483,7 +491,16 @@ ${lines.join('\n')}
   const isDistanceWarning = Number(distance) > DRAIN_LINE_CONSTRAINTS.maxLength;
   const gradientPercentage = result ? (100 / Math.abs(result.gradient)).toFixed(2) : '0.00';
 
-  // Panels defined as variables to allow swapping order based on mode
+  // Panel Logic Variables
+  // Calculate dynamic displayed values for Upstream Panel (taking into account drop)
+  const upstreamDisplayIl = mode === CalculationMode.UPSTREAM && result 
+    ? result.startNode.il + upstreamDrop 
+    : (il1 === '' ? '' : Number(il1));
+
+  const upstreamDisplayDepth = mode === CalculationMode.UPSTREAM && result 
+    ? (result.startNode.tl - (result.startNode.il + upstreamDrop))
+    : (depth1 === '' ? '' : Number(depth1));
+
   const UpstreamPanel = (
     <LiquidCard key="upstream" className={mode === CalculationMode.UPSTREAM ? 'ring-2 ring-purple-500/50' : ''}>
       <div className="flex justify-between items-center mb-6">
@@ -499,7 +516,11 @@ ${lines.join('\n')}
          <div className="flex items-center gap-2">
            {result && (
               <button 
-                onClick={() => handleNodeCopy(result.startNode.id, result.startNode.tl, result.startNode.il)}
+                onClick={() => handleNodeCopy(
+                  result.startNode.id, 
+                  result.startNode.tl, 
+                  typeof upstreamDisplayIl === 'number' ? upstreamDisplayIl : result.startNode.il
+                )}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 text-[10px] font-bold text-blue-600 dark:text-blue-300 transition-all active:scale-95"
                 title="Copy for CAD"
               >
@@ -513,19 +534,73 @@ ${lines.join('\n')}
          </div>
       </div>
       
+      {mode === CalculationMode.UPSTREAM && (
+        <div className="mb-5 animate-in fade-in slide-in-from-top-2 duration-300">
+          <div className="flex justify-between items-end mb-2">
+             <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-white/50">
+               <ArrowDownToLine size={12} />
+               <span>Branch Drop</span>
+             </div>
+             {upstreamDrop > 0 && (
+               <span className="text-[9px] bg-purple-500 text-white px-1.5 py-0.5 rounded font-bold">
+                 ACTIVE
+               </span>
+             )}
+          </div>
+          <div className="bg-slate-100 dark:bg-black/20 p-1 rounded-xl grid grid-cols-3 gap-1">
+             <button 
+               onClick={() => { setUpstreamDrop(0); triggerFeedback('click'); }}
+               className={`py-2 text-xs font-bold rounded-lg transition-all flex flex-col items-center justify-center gap-0.5 ${upstreamDrop === 0 ? 'bg-white dark:bg-white/20 shadow text-slate-800 dark:text-white' : 'text-slate-500 dark:text-white/40 hover:bg-white/50 dark:hover:bg-white/5'}`}
+             >
+               <span>Standard</span>
+             </button>
+             <button 
+               onClick={() => { setUpstreamDrop(0.075); triggerFeedback('click'); }}
+               className={`py-2 text-xs font-bold rounded-lg transition-all flex flex-col items-center justify-center gap-0.5 ${upstreamDrop === 0.075 ? 'bg-purple-500 text-white shadow' : 'text-slate-500 dark:text-white/40 hover:bg-white/50 dark:hover:bg-white/5'}`}
+             >
+               <span>+75mm</span>
+             </button>
+             <button 
+               onClick={() => { setUpstreamDrop(0.100); triggerFeedback('click'); }}
+               className={`py-2 text-xs font-bold rounded-lg transition-all flex flex-col items-center justify-center gap-0.5 ${upstreamDrop === 0.100 ? 'bg-purple-500 text-white shadow' : 'text-slate-500 dark:text-white/40 hover:bg-white/50 dark:hover:bg-white/5'}`}
+             >
+               <span>+100mm</span>
+             </button>
+          </div>
+        </div>
+      )}
+
       <div className="space-y-4">
         <InputGroup label="Top Level (TL)" value={tl1} onChange={handleTl1Change} unit="m" placeholder="0.00" />
-        <InputGroup 
-          label="Invert Level (IL)" 
-          value={mode === CalculationMode.UPSTREAM && result ? result.startNode.il.toFixed(3) : il1} 
-          onChange={handleIl1Change} 
-          unit="m" 
-          placeholder="0.00"
-          readOnly={mode === CalculationMode.UPSTREAM}
-        />
+        
+        <div className="relative">
+           <InputGroup 
+            label={
+              <div className="flex items-center gap-2">
+                <span>Invert Level (IL)</span>
+                {upstreamDrop > 0 && mode === CalculationMode.UPSTREAM && (
+                   <span className="text-[9px] text-purple-600 dark:text-purple-300 bg-purple-100 dark:bg-purple-500/20 px-1.5 py-0.5 rounded">
+                     Branch IL (Modified)
+                   </span>
+                )}
+              </div>
+            } 
+            value={typeof upstreamDisplayIl === 'number' ? upstreamDisplayIl.toFixed(3) : upstreamDisplayIl} 
+            onChange={handleIl1Change} 
+            unit="m" 
+            placeholder="0.00"
+            readOnly={mode === CalculationMode.UPSTREAM}
+          />
+          {mode === CalculationMode.UPSTREAM && result && upstreamDrop === 0 && (
+             <div className="absolute right-14 top-[2.1rem] pointer-events-none text-[10px] text-slate-400 dark:text-white/20">
+               (Main Pipe)
+             </div>
+          )}
+        </div>
+
         <InputGroup 
           label="Depth"
-          value={mode === CalculationMode.UPSTREAM && result ? result.startNode.depth.toFixed(3) : depth1}
+          value={typeof upstreamDisplayDepth === 'number' ? upstreamDisplayDepth.toFixed(3) : upstreamDisplayDepth}
           onChange={mode === CalculationMode.UPSTREAM ? () => {} : handleDepth1Change}
           unit="m"
           placeholder="0.00"
