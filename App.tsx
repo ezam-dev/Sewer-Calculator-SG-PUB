@@ -537,42 +537,6 @@ ${lines.join('\n')}
          </div>
       </div>
       
-      {mode === CalculationMode.UPSTREAM && (
-        <div className="mb-5 animate-in fade-in slide-in-from-top-2 duration-300">
-          <div className="flex justify-between items-end mb-2">
-             <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-white/50">
-               <ArrowDownToLine size={12} />
-               <span>Branch Drop</span>
-             </div>
-             {upstreamDrop > 0 && (
-               <span className="text-[9px] bg-purple-500 text-white px-1.5 py-0.5 rounded font-bold">
-                 ACTIVE
-               </span>
-             )}
-          </div>
-          <div className="bg-slate-100 dark:bg-black/20 p-1 rounded-xl grid grid-cols-3 gap-1">
-             <button 
-               onClick={() => { setUpstreamDrop(0); triggerFeedback('click'); }}
-               className={`py-2 text-xs font-bold rounded-lg transition-all flex flex-col items-center justify-center gap-0.5 ${upstreamDrop === 0 ? 'bg-white dark:bg-white/20 shadow text-slate-800 dark:text-white' : 'text-slate-500 dark:text-white/40 hover:bg-white/50 dark:hover:bg-white/5'}`}
-             >
-               <span>Standard</span>
-             </button>
-             <button 
-               onClick={() => { setUpstreamDrop(0.075); triggerFeedback('click'); }}
-               className={`py-2 text-xs font-bold rounded-lg transition-all flex flex-col items-center justify-center gap-0.5 ${upstreamDrop === 0.075 ? 'bg-purple-500 text-white shadow' : 'text-slate-500 dark:text-white/40 hover:bg-white/50 dark:hover:bg-white/5'}`}
-             >
-               <span>+75mm</span>
-             </button>
-             <button 
-               onClick={() => { setUpstreamDrop(0.100); triggerFeedback('click'); }}
-               className={`py-2 text-xs font-bold rounded-lg transition-all flex flex-col items-center justify-center gap-0.5 ${upstreamDrop === 0.100 ? 'bg-purple-500 text-white shadow' : 'text-slate-500 dark:text-white/40 hover:bg-white/50 dark:hover:bg-white/5'}`}
-             >
-               <span>+100mm</span>
-             </button>
-          </div>
-        </div>
-      )}
-
       <div className="space-y-4">
         <InputGroup label="Top Level (TL)" value={tl1} onChange={handleTl1Change} unit="m" placeholder="0.00" />
         
@@ -1109,6 +1073,42 @@ ${lines.join('\n')}
                 </div>
              )}
 
+             {mode === CalculationMode.UPSTREAM && (
+                <div className="mb-5 animate-in fade-in slide-in-from-top-2 duration-300 border-t border-slate-200 dark:border-white/10 pt-4">
+                  <div className="flex justify-between items-end mb-2">
+                     <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-white/50">
+                       <ArrowDownToLine size={12} />
+                       <span>Branch Drop (At Upstream)</span>
+                     </div>
+                     {upstreamDrop > 0 && (
+                       <span className="text-[9px] bg-purple-500 text-white px-1.5 py-0.5 rounded font-bold">
+                         ACTIVE
+                       </span>
+                     )}
+                  </div>
+                  <div className="bg-slate-100 dark:bg-black/20 p-1 rounded-xl grid grid-cols-3 gap-1">
+                     <button 
+                       onClick={() => { setUpstreamDrop(0); triggerFeedback('click'); }}
+                       className={`py-2 text-xs font-bold rounded-lg transition-all flex flex-col items-center justify-center gap-0.5 ${upstreamDrop === 0 ? 'bg-white dark:bg-white/20 shadow text-slate-800 dark:text-white' : 'text-slate-500 dark:text-white/40 hover:bg-white/50 dark:hover:bg-white/5'}`}
+                     >
+                       <span>Standard</span>
+                     </button>
+                     <button 
+                       onClick={() => { setUpstreamDrop(0.075); triggerFeedback('click'); }}
+                       className={`py-2 text-xs font-bold rounded-lg transition-all flex flex-col items-center justify-center gap-0.5 ${upstreamDrop === 0.075 ? 'bg-purple-500 text-white shadow' : 'text-slate-500 dark:text-white/40 hover:bg-white/50 dark:hover:bg-white/5'}`}
+                     >
+                       <span>+75mm</span>
+                     </button>
+                     <button 
+                       onClick={() => { setUpstreamDrop(0.100); triggerFeedback('click'); }}
+                       className={`py-2 text-xs font-bold rounded-lg transition-all flex flex-col items-center justify-center gap-0.5 ${upstreamDrop === 0.100 ? 'bg-purple-500 text-white shadow' : 'text-slate-500 dark:text-white/40 hover:bg-white/50 dark:hover:bg-white/5'}`}
+                     >
+                       <span>+100mm</span>
+                     </button>
+                  </div>
+                </div>
+              )}
+
              {/* Always Visible: Distance & Gradient Inputs */}
              <div className="grid grid-cols-2 gap-4">
                 <div className="flex flex-col">
@@ -1410,3 +1410,4 @@ ${lines.join('\n')}
 };
 
 export default App;
+    
