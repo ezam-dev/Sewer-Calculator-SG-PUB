@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Calculator, AlertTriangle, CheckCircle2, Settings2, TrendingDown, ArrowUpRight, Droplets, ChevronDown, ArrowRight, Copy, History, Save, RefreshCcw, Mail, Phone, Info, ListPlus, FileText, X, Activity, Trash2, Sun, Moon, Volume2, VolumeX, ArrowDownToLine } from 'lucide-react';
+import { Calculator, AlertTriangle, CheckCircle2, Settings2, TrendingDown, ArrowUpRight, Droplets, ChevronDown, ChevronUp, ArrowRight, Copy, History, Save, RefreshCcw, Mail, Phone, Info, ListPlus, FileText, X, Activity, Trash2, Sun, Moon, Volume2, VolumeX, ArrowDownToLine, BookOpen } from 'lucide-react';
 import { LiquidCard } from './components/LiquidCard';
 import { InputGroup } from './components/InputGroup';
 import SchematicGraph from './components/SchematicGraph';
@@ -19,6 +20,7 @@ const App: React.FC = () => {
   const [selectedMaterial, setSelectedMaterial] = useState<string>('UPVC');
   const [selectedDiameter, setSelectedDiameter] = useState<number>(150);
   const [pipeId, setPipeId] = useState<string>(DEFAULT_VALUES.defaultPipeId);
+  const [isPipeSettingsCollapsed, setIsPipeSettingsCollapsed] = useState(true);
   
   // Inputs
   const [ic1, setIc1] = useState<string>(DEFAULT_VALUES.startIC);
@@ -46,6 +48,7 @@ const App: React.FC = () => {
   const [showScheduleCopyFeedback, setShowScheduleCopyFeedback] = useState(false);
   const [copiedNode, setCopiedNode] = useState<string | null>(null);
   const [showStandards, setShowStandards] = useState(false);
+  const [showCopModal, setShowCopModal] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   // Sound & Haptic Logic
@@ -724,6 +727,127 @@ ${lines.join('\n')}
           </div>
         </div>
       )}
+      
+      {/* COPSSW Guidelines Modal */}
+      {showCopModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/20 dark:bg-black/60 backdrop-blur-sm animate-in fade-in zoom-in-95 duration-200">
+          <div className="bg-white dark:bg-[#1a1f3c] border border-black/5 dark:border-white/10 rounded-3xl p-0 max-w-2xl w-full shadow-2xl relative overflow-hidden flex flex-col max-h-[85vh]">
+            {/* Header */}
+            <div className="p-6 border-b border-slate-100 dark:border-white/5 flex justify-between items-center bg-slate-50/50 dark:bg-white/5 backdrop-blur-xl">
+              <div className="flex items-center gap-3 text-cyan-600 dark:text-cyan-300">
+                <BookOpen size={24} />
+                <div>
+                  <h3 className="text-lg font-bold text-slate-800 dark:text-white leading-tight">COPSSW Guidelines</h3>
+                  <p className="text-xs text-slate-500 dark:text-white/50 font-medium">Comparison of Editions & Standards</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setShowCopModal(false)}
+                className="text-slate-400 dark:text-white/40 hover:text-slate-900 dark:hover:text-white transition-colors"
+              >
+                <X size={24} />
+              </button>
+            </div>
+            
+            {/* Content Scrollable */}
+            <div className="overflow-y-auto p-6 space-y-8">
+              
+              {/* Section 1: Overview */}
+              <section>
+                <h4 className="text-sm font-bold uppercase tracking-wider text-slate-400 dark:text-white/40 mb-4">Historical Overview</h4>
+                <div className="space-y-3">
+                  <div className="flex gap-4">
+                    <div className="w-16 shrink-0 text-xs font-bold py-1 px-2 rounded bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-white text-center h-fit">2000</div>
+                    <div>
+                      <p className="text-sm font-bold text-slate-800 dark:text-white">1st Edition</p>
+                      <p className="text-sm text-slate-600 dark:text-white/60">Established foundational sewerage design standards, basic inspection chamber (IC) and manhole provisions.</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-4">
+                    <div className="w-16 shrink-0 text-xs font-bold py-1 px-2 rounded bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-white text-center h-fit">2019</div>
+                    <div>
+                      <p className="text-sm font-bold text-slate-800 dark:text-white">2nd Edition (+2021 Addendum)</p>
+                      <p className="text-sm text-slate-600 dark:text-white/60">Updated flow design basis, introduced sewer protection corridors, added structural and waterproofing requirements.</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-4">
+                    <div className="w-16 shrink-0 text-xs font-bold py-1 px-2 rounded bg-gradient-to-r from-cyan-500 to-blue-500 text-white text-center h-fit shadow-lg shadow-cyan-500/20">2025</div>
+                    <div>
+                      <p className="text-sm font-bold text-cyan-600 dark:text-cyan-300">3rd Edition (Latest)</p>
+                      <p className="text-sm text-slate-600 dark:text-white/60">Strengthened environmental & safety standards, enhanced monitoring, tighter construction tolerance, new annexes for VOCs.</p>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              {/* Section 2: Comparison Table (Simplified as Cards for Mobile/Desktop) */}
+              <section>
+                <h4 className="text-sm font-bold uppercase tracking-wider text-slate-400 dark:text-white/40 mb-4">Technical Specifications</h4>
+                
+                <div className="grid gap-4 md:grid-cols-2">
+                  {/* Inspection Chambers */}
+                  <div className="p-5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5">
+                    <h5 className="font-bold text-slate-800 dark:text-white mb-3 flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                      Inspection Chambers
+                    </h5>
+                    <ul className="space-y-3 text-sm">
+                      <li className="flex justify-between items-start gap-2">
+                        <span className="text-slate-500 dark:text-white/50">Depth</span>
+                        <span className="font-medium text-slate-800 dark:text-white text-right">Min 750mm</span>
+                      </li>
+                      <li className="flex justify-between items-start gap-2">
+                        <span className="text-slate-500 dark:text-white/50">Location</span>
+                        <span className="font-medium text-slate-800 dark:text-white text-right">Bends, junctions, grade changes. Max spacing 50m.</span>
+                      </li>
+                      <li className="flex justify-between items-start gap-2">
+                        <span className="text-slate-500 dark:text-white/50">Materials</span>
+                        <span className="font-medium text-slate-800 dark:text-white text-right">Heavy-duty cast iron or HDPE. SS EN 124 compliant.</span>
+                      </li>
+                      <li className="flex justify-between items-start gap-2">
+                        <span className="text-slate-500 dark:text-white/50">Watertightness</span>
+                        <span className="font-medium text-slate-800 dark:text-white text-right">Mandatory testing (Annex D).</span>
+                      </li>
+                    </ul>
+                  </div>
+
+                  {/* Manholes */}
+                  <div className="p-5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5">
+                    <h5 className="font-bold text-slate-800 dark:text-white mb-3 flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-purple-500"></div>
+                      Manholes
+                    </h5>
+                    <ul className="space-y-3 text-sm">
+                      <li className="flex justify-between items-start gap-2">
+                        <span className="text-slate-500 dark:text-white/50">Depth</span>
+                        <span className="font-medium text-slate-800 dark:text-white text-right">Min 1.5m</span>
+                      </li>
+                        <li className="flex justify-between items-start gap-2">
+                        <span className="text-slate-500 dark:text-white/50">Structure</span>
+                        <span className="font-medium text-slate-800 dark:text-white text-right">Reinforced concrete, lined. No construction under buildings.</span>
+                      </li>
+                      <li className="flex justify-between items-start gap-2">
+                        <span className="text-slate-500 dark:text-white/50">Access</span>
+                        <span className="font-medium text-slate-800 dark:text-white text-right">Step irons/ladders (AS/NZS). Platforms for deep shafts.</span>
+                      </li>
+                      <li className="flex justify-between items-start gap-2">
+                        <span className="text-slate-500 dark:text-white/50">Safety</span>
+                        <span className="font-medium text-slate-800 dark:text-white text-right">Gas monitoring, safety signage, ventilation.</span>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              </section>
+
+              {/* Section 3: Summary */}
+              <div className="p-4 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-800 dark:text-cyan-200 text-sm leading-relaxed">
+                <strong>2025 Key Update:</strong> The latest guidelines emphasize operational safety, environmental compliance (VOCs), and routine maintenance access. Flow direction, benching, and watertight pipe connections are critical for both manholes and inspection chambers to ensure durability and system integrity.
+              </div>
+
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Delete Confirmation Modal */}
       {deleteConfirmId && (
@@ -822,6 +946,15 @@ ${lines.join('\n')}
             {/* Divider */}
             <div className="w-px h-8 bg-slate-200 dark:bg-white/10 mx-1"></div>
 
+            {/* Read Guidelines Button */}
+            <button
+              onClick={() => { triggerFeedback('click'); setShowCopModal(true); }}
+              className="relative p-3 rounded-full text-slate-500 dark:text-white/40 hover:bg-white/50 dark:hover:bg-white/10 hover:text-cyan-600 dark:hover:text-cyan-300 transition-all duration-300 hover:shadow-sm active:scale-90"
+              title="Read COP Guidelines"
+            >
+              <BookOpen size={20} strokeWidth={2.5} />
+            </button>
+
              {/* Sound Toggle */}
              <button
               onClick={toggleSound}
@@ -848,21 +981,37 @@ ${lines.join('\n')}
         <div className="lg:col-span-4 flex flex-col gap-6">
           
           {/* Top Panel (Upstream or Downstream based on mode) */}
-          {/* Logic: In slope UP mode, we usually calculate Upstream from Downstream, so inputting Downstream first makes sense to be at top? 
-              Actually, conventionally "Start" is Upstream. 
-              Slope Up means: Given End, Find Start. So End (Downstream) is the Known. 
-              Slope Down means: Given Start, Find End. So Start (Upstream) is the Known.
-              The layout swaps to place the "Known/Input" node at the top physically. 
-          */}
           {mode === CalculationMode.UPSTREAM ? DownstreamPanel : UpstreamPanel}
 
           {/* Connection Parameters */}
           <LiquidCard>
              <div className="flex items-center justify-between mb-6 gap-4">
                 <div className="flex items-center gap-2">
+                   <button 
+                      onClick={() => { setIsPipeSettingsCollapsed(!isPipeSettingsCollapsed); triggerFeedback('click'); }}
+                      className="p-1 -ml-1 rounded-lg hover:bg-slate-100 dark:hover:bg-white/10 text-slate-400 dark:text-white/40 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+                      title={isPipeSettingsCollapsed ? "Expand Details" : "Minimize Details"}
+                   >
+                      {isPipeSettingsCollapsed ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
+                   </button>
                    <div className="h-px w-4 bg-slate-300 dark:bg-white/10"></div>
-                   <span className="text-xs font-medium text-slate-400 dark:text-white/40 uppercase tracking-widest whitespace-nowrap">Pipe Connection</span>
-                   <div className="h-px w-8 bg-slate-300 dark:bg-white/10"></div>
+                   <span 
+                      className="text-xs font-medium text-slate-400 dark:text-white/40 uppercase tracking-widest whitespace-nowrap cursor-pointer select-none"
+                      onClick={() => { setIsPipeSettingsCollapsed(!isPipeSettingsCollapsed); triggerFeedback('click'); }}
+                   >
+                      PIPE
+                   </span>
+                   
+                   {/* Summary Pill when Minimized */}
+                   {isPipeSettingsCollapsed && (
+                      <div className="animate-in fade-in slide-in-from-left-2 duration-300 flex items-center gap-2 ml-2 px-2 py-1 rounded-md bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10">
+                          <div className={`w-1.5 h-1.5 rounded-full ${isPumpingMain ? 'bg-pink-500' : 'bg-cyan-500'}`}></div>
+                          <span className="text-[10px] font-bold text-slate-600 dark:text-white/80">ø{selectedDiameter}mm</span>
+                          <span className="text-[10px] text-slate-400 dark:text-white/50 hidden sm:inline">{selectedMaterial}</span>
+                      </div>
+                   )}
+                   
+                   {!isPipeSettingsCollapsed && <div className="h-px w-8 bg-slate-300 dark:bg-white/10"></div>}
                 </div>
                 
                 {/* Pumping Main Toggle */}
@@ -872,141 +1021,145 @@ ${lines.join('\n')}
                    title="Enable pumping main options (allows ø100mm)"
                 >
                    <Activity size={12} />
-                   <span className="text-[10px] font-bold uppercase">Pumping Main</span>
+                   <span className="text-[10px] font-bold uppercase hidden sm:inline">Pumping Main</span>
+                   <span className="text-[10px] font-bold uppercase sm:hidden">PM</span>
                    <div className={`w-2 h-2 rounded-full ${isPumpingMain ? 'bg-pink-500 dark:bg-pink-400 shadow-[0_0_8px_rgba(236,72,153,0.6)]' : 'bg-slate-300 dark:bg-white/20'}`}></div>
                 </button>
              </div>
 
-             {/* Highlighted Active Pipe Card */}
-             <div className="relative mb-6 p-5 rounded-2xl bg-gradient-to-br from-slate-100 to-white dark:from-white/5 dark:to-white/[0.02] border border-slate-200 dark:border-white/10 shadow-inner overflow-hidden group transition-all hover:shadow-lg dark:hover:shadow-cyan-500/10">
-                {/* Active Glow Background */}
-                <div className="absolute inset-0 bg-cyan-500/5 dark:bg-cyan-400/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-                <div className="absolute -right-12 -top-12 w-32 h-32 bg-cyan-500/20 dark:bg-cyan-400/10 blur-3xl rounded-full pointer-events-none"></div>
-                
-                <div className="relative z-10 flex items-center justify-between">
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-cyan-300/70">Selected Pipe</span>
-                      {isPumpingMain && <span className="px-1.5 py-0.5 rounded bg-pink-500/20 text-pink-600 dark:text-pink-300 text-[9px] font-bold border border-pink-500/20">PUMPING MAIN</span>}
-                    </div>
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-3xl font-bold text-slate-800 dark:text-white tracking-tight">ø{selectedDiameter}mm</span>
-                      <span className="text-lg text-slate-500 dark:text-white/60 font-light">{selectedMaterial}</span>
-                    </div>
-                  </div>
-                  
-                  <div className="flex flex-col items-end gap-2">
-                    <div className="flex items-center gap-2 px-2 py-1 rounded-lg bg-slate-200/50 dark:bg-black/30 border border-slate-300/50 dark:border-white/10">
-                      <span className="text-[10px] text-slate-500 dark:text-slate-400 uppercase">Roughness</span>
-                      <span className="text-xs font-mono font-bold text-cyan-600 dark:text-cyan-400">{currentPipe.n}</span>
-                    </div>
-                    <div className="flex items-center gap-2 px-2 py-1 rounded-lg bg-slate-200/50 dark:bg-black/30 border border-slate-300/50 dark:border-white/10">
-                      <span className="text-[10px] text-slate-500 dark:text-slate-400 uppercase">Min Grad</span>
-                      <span className="text-xs font-mono font-bold text-purple-600 dark:text-purple-400">1:{currentPipe.minGradient}</span>
-                    </div>
-                  </div>
-                </div>
-             </div>
-
-             <div className="space-y-5">
-                
-                {/* Split Material / Diameter Selection */}
-                <div className="grid grid-cols-2 gap-4">
-                  {/* Size (MM) on the LEFT */}
-                  <div className="flex flex-col gap-1.5">
-                     <label className="text-xs font-medium text-slate-500 dark:text-blue-200/70 uppercase tracking-wider ml-1">
-                        Change Size
-                     </label>
-                     <div className="relative group/select">
-                      <select 
-                        value={selectedDiameter} 
-                        onChange={(e) => setSelectedDiameter(Number(e.target.value))}
-                        className="w-full bg-white/50 dark:bg-black/20 border border-slate-200 dark:border-white/10 text-slate-800 dark:text-white text-sm rounded-2xl px-3 py-3 appearance-none focus:border-cyan-400/50 outline-none transition-all cursor-pointer hover:bg-white/80 dark:hover:bg-white/5 focus:scale-[1.02] focus:bg-white dark:focus:bg-black/30 ease-out duration-300"
-                      >
-                        {availableDiameters.map(d => (
-                          <option key={d} value={d} className="bg-white dark:bg-[#24243e] text-slate-800 dark:text-white">ø{d}mm</option>
-                        ))}
-                      </select>
-                      <ChevronDown className="absolute right-3 top-3.5 text-slate-400 dark:text-white/40 w-4 h-4 pointer-events-none" />
-                    </div>
-                  </div>
-
-                  {/* Material on the RIGHT */}
-                  <div className="flex flex-col gap-1.5">
-                    <div className="flex items-center gap-2">
-                      <label className="text-xs font-medium text-slate-500 dark:text-blue-200/70 uppercase tracking-wider ml-1">Change Material</label>
-                      <button onClick={() => setShowStandards(true)} className="group relative outline-none">
-                        <Info size={12} className="text-slate-400 dark:text-white/30 hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors" />
-                      </button>
-                    </div>
-                    <div className="relative group/select">
-                      <select 
-                        value={selectedMaterial} 
-                        onChange={(e) => {
-                          setSelectedMaterial(e.target.value);
-                        }}
-                        className="w-full bg-white/50 dark:bg-black/20 border border-slate-200 dark:border-white/10 text-slate-800 dark:text-white text-sm rounded-2xl px-3 py-3 appearance-none focus:border-cyan-400/50 outline-none transition-all cursor-pointer hover:bg-white/80 dark:hover:bg-white/5 focus:scale-[1.02] focus:bg-white dark:focus:bg-black/30 ease-out duration-300"
-                      >
-                        {materials.map(m => (
-                          <option key={m} value={m} className="bg-white dark:bg-[#24243e] text-slate-800 dark:text-white">{m}</option>
-                        ))}
-                      </select>
-                      <ChevronDown className="absolute right-3 top-3.5 text-slate-400 dark:text-white/40 w-4 h-4 pointer-events-none" />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="flex flex-col">
-                    <InputGroup 
-                      label={
-                        <div className="flex justify-between items-center w-full pr-1">
-                           <span>Distance</span>
-                           <span className={`text-[9px] px-1.5 py-0.5 rounded border uppercase tracking-wider transition-all duration-300 ${
-                               isDistanceWarning 
-                               ? 'bg-red-500/10 text-red-600 dark:text-red-300 border-red-500/30 animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.2)]' 
-                               : 'bg-slate-100 dark:bg-white/5 text-slate-400 dark:text-white/30 border-slate-200 dark:border-white/10'
-                           }`}>Max 50m</span>
-                        </div>
-                      } 
-                      value={distance} 
-                      onChange={(v) => setDistance(v === '' ? '' : Number(v))} 
-                      unit="m" 
-                      placeholder="0.00" 
-                    />
-                    {isDistanceWarning && (
-                      <div className="flex items-start gap-1.5 mt-2 px-2 py-1.5 rounded bg-red-500/10 border border-red-500/20 text-red-500 dark:text-red-300 text-[10px] animate-in fade-in slide-in-from-top-1 duration-300">
-                         <AlertTriangle size={12} className="mt-0.5 shrink-0" />
-                         <div className="flex flex-col">
-                             <span className="font-bold">Exceeds PUB Limit (Section 4.2.1)</span>
-                             <span className="opacity-80">For longer runs, provide intermediate ICs.</span>
-                         </div>
-                      </div>
-                    )}
-                  </div>
-                  
-                  <div className="relative">
-                    <InputGroup 
-                      label={
-                          <div className="flex justify-between items-center w-full pr-1">
-                           <span>Gradient (1:X)</span>
-                           {result && <span className="text-[9px] text-slate-400 dark:text-white/30 bg-slate-100 dark:bg-white/5 px-1 rounded">{gradientPercentage}%</span>}
+             {/* Collapsible Pipe Details Section */}
+             {!isPipeSettingsCollapsed && (
+                <div className="animate-in slide-in-from-top-2 fade-in duration-300">
+                   {/* Highlighted Active Pipe Card */}
+                   <div className="relative mb-6 p-5 rounded-2xl bg-gradient-to-br from-slate-100 to-white dark:from-white/5 dark:to-white/[0.02] border border-slate-200 dark:border-white/10 shadow-inner overflow-hidden group transition-all hover:shadow-lg dark:hover:shadow-cyan-500/10">
+                      {/* Active Glow Background */}
+                      <div className="absolute inset-0 bg-cyan-500/5 dark:bg-cyan-400/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                      <div className="absolute -right-12 -top-12 w-32 h-32 bg-cyan-500/20 dark:bg-cyan-400/10 blur-3xl rounded-full pointer-events-none"></div>
+                      
+                      <div className="relative z-10 flex items-center justify-between">
+                        <div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-cyan-300/70">Selected Pipe</span>
+                            {isPumpingMain && <span className="px-1.5 py-0.5 rounded bg-pink-500/20 text-pink-600 dark:text-pink-300 text-[9px] font-bold border border-pink-500/20">PUMPING MAIN</span>}
                           </div>
-                      }
-                      value={mode === CalculationMode.VERIFY && result ? (result.gradient === 0 ? '0' : Math.abs(result.gradient).toFixed(1)) : gradient} 
-                      onChange={(v) => setGradient(v === '' ? '' : Number(v))} 
-                      unit="" 
-                      placeholder="60"
-                      readOnly={mode === CalculationMode.VERIFY}
-                    />
-                    {/* Warning Icon for Gradient Input */}
-                    {isGradientWarning && !result?.isCompliant && mode !== CalculationMode.VERIFY && !isPumpingMain && (
-                       <div className="absolute right-0 top-0 -mt-1 flex items-center gap-1 text-amber-500 dark:text-amber-400 animate-pulse bg-white/50 dark:bg-black/50 rounded px-1">
-                         <AlertTriangle size={10} />
-                         <span className="text-[10px] font-bold">Below Min</span>
+                          <div className="flex items-baseline gap-2">
+                            <span className="text-3xl font-bold text-slate-800 dark:text-white tracking-tight">ø{selectedDiameter}mm</span>
+                            <span className="text-lg text-slate-500 dark:text-white/60 font-light">{selectedMaterial}</span>
+                          </div>
+                        </div>
+                        
+                        <div className="flex flex-col items-end gap-2">
+                          <div className="flex items-center gap-2 px-2 py-1 rounded-lg bg-slate-200/50 dark:bg-black/30 border border-slate-300/50 dark:border-white/10">
+                            <span className="text-[10px] text-slate-500 dark:text-slate-400 uppercase">Roughness</span>
+                            <span className="text-xs font-mono font-bold text-cyan-600 dark:text-cyan-400">{currentPipe.n}</span>
+                          </div>
+                          <div className="flex items-center gap-2 px-2 py-1 rounded-lg bg-slate-200/50 dark:bg-black/30 border border-slate-300/50 dark:border-white/10">
+                            <span className="text-[10px] text-slate-500 dark:text-slate-400 uppercase">Min Grad</span>
+                            <span className="text-xs font-mono font-bold text-purple-600 dark:text-purple-400">1:{currentPipe.minGradient}</span>
+                          </div>
+                        </div>
+                      </div>
+                   </div>
+
+                   {/* Split Material / Diameter Selection */}
+                   <div className="grid grid-cols-2 gap-4 mb-5">
+                      {/* Size (MM) on the LEFT */}
+                      <div className="flex flex-col gap-1.5">
+                         <label className="text-xs font-medium text-slate-500 dark:text-blue-200/70 uppercase tracking-wider ml-1">
+                            Pipe Size
+                         </label>
+                         <div className="relative group/select">
+                          <select 
+                            value={selectedDiameter} 
+                            onChange={(e) => setSelectedDiameter(Number(e.target.value))}
+                            className="w-full bg-white/50 dark:bg-black/20 border border-slate-200 dark:border-white/10 text-slate-800 dark:text-white text-sm rounded-2xl px-3 py-3 appearance-none focus:border-cyan-400/50 outline-none transition-all cursor-pointer hover:bg-white/80 dark:hover:bg-white/5 focus:scale-[1.02] focus:bg-white dark:focus:bg-black/30 ease-out duration-300"
+                          >
+                            {availableDiameters.map(d => (
+                              <option key={d} value={d} className="bg-white dark:bg-[#24243e] text-slate-800 dark:text-white">ø{d}mm</option>
+                            ))}
+                          </select>
+                          <ChevronDown className="absolute right-3 top-3.5 text-slate-400 dark:text-white/40 w-4 h-4 pointer-events-none" />
+                        </div>
+                      </div>
+
+                      {/* Material on the RIGHT */}
+                      <div className="flex flex-col gap-1.5">
+                        <div className="flex items-center gap-2">
+                          <label className="text-xs font-medium text-slate-500 dark:text-blue-200/70 uppercase tracking-wider ml-1">Change Material</label>
+                          <button onClick={() => setShowStandards(true)} className="group relative outline-none">
+                            <Info size={12} className="text-slate-400 dark:text-white/30 hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors" />
+                          </button>
+                        </div>
+                        <div className="relative group/select">
+                          <select 
+                            value={selectedMaterial} 
+                            onChange={(e) => {
+                              setSelectedMaterial(e.target.value);
+                            }}
+                            className="w-full bg-white/50 dark:bg-black/20 border border-slate-200 dark:border-white/10 text-slate-800 dark:text-white text-sm rounded-2xl px-3 py-3 appearance-none focus:border-cyan-400/50 outline-none transition-all cursor-pointer hover:bg-white/80 dark:hover:bg-white/5 focus:scale-[1.02] focus:bg-white dark:focus:bg-black/30 ease-out duration-300"
+                          >
+                            {materials.map(m => (
+                              <option key={m} value={m} className="bg-white dark:bg-[#24243e] text-slate-800 dark:text-white">{m}</option>
+                            ))}
+                          </select>
+                          <ChevronDown className="absolute right-3 top-3.5 text-slate-400 dark:text-white/40 w-4 h-4 pointer-events-none" />
+                        </div>
+                      </div>
+                   </div>
+                </div>
+             )}
+
+             {/* Always Visible: Distance & Gradient Inputs */}
+             <div className="grid grid-cols-2 gap-4">
+                <div className="flex flex-col">
+                  <InputGroup 
+                    label={
+                      <div className="flex justify-between items-center w-full pr-1">
+                         <span>Distance</span>
+                         <span className={`text-[9px] px-1.5 py-0.5 rounded border uppercase tracking-wider transition-all duration-300 ${
+                             isDistanceWarning 
+                             ? 'bg-red-500/10 text-red-600 dark:text-red-300 border-red-500/30 animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.2)]' 
+                             : 'bg-slate-100 dark:bg-white/5 text-slate-400 dark:text-white/30 border-slate-200 dark:border-white/10'
+                         }`}>Max 50m</span>
+                      </div>
+                    } 
+                    value={distance} 
+                    onChange={(v) => setDistance(v === '' ? '' : Number(v))} 
+                    unit="m" 
+                    placeholder="0.00" 
+                  />
+                  {isDistanceWarning && (
+                    <div className="flex items-start gap-1.5 mt-2 px-2 py-1.5 rounded bg-red-500/10 border border-red-500/20 text-red-500 dark:text-red-300 text-[10px] animate-in fade-in slide-in-from-top-1 duration-300">
+                       <AlertTriangle size={12} className="mt-0.5 shrink-0" />
+                       <div className="flex flex-col">
+                           <span className="font-bold">Exceeds PUB Limit (Section 4.2.1)</span>
+                           <span className="opacity-80">For longer runs, provide intermediate ICs.</span>
                        </div>
-                    )}
-                  </div>
+                    </div>
+                  )}
+                </div>
+                
+                <div className="relative">
+                  <InputGroup 
+                    label={
+                        <div className="flex justify-between items-center w-full pr-1">
+                         <span>Gradient (1:X)</span>
+                         {result && <span className="text-[9px] text-slate-400 dark:text-white/30 bg-slate-100 dark:bg-white/5 px-1 rounded">{gradientPercentage}%</span>}
+                        </div>
+                    }
+                    value={mode === CalculationMode.VERIFY && result ? (result.gradient === 0 ? '0' : Math.abs(result.gradient).toFixed(1)) : gradient} 
+                    onChange={(v) => setGradient(v === '' ? '' : Number(v))} 
+                    unit="" 
+                    placeholder="60"
+                    readOnly={mode === CalculationMode.VERIFY}
+                  />
+                  {/* Warning Icon for Gradient Input */}
+                  {isGradientWarning && !result?.isCompliant && mode !== CalculationMode.VERIFY && !isPumpingMain && (
+                     <div className="absolute right-0 top-0 -mt-1 flex items-center gap-1 text-amber-500 dark:text-amber-400 animate-pulse bg-white/50 dark:bg-black/50 rounded px-1">
+                       <AlertTriangle size={10} />
+                       <span className="text-[10px] font-bold">Below Min</span>
+                     </div>
+                  )}
                 </div>
              </div>
           </LiquidCard>
